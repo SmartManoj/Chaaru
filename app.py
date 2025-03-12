@@ -4,7 +4,6 @@ from e2b_desktop import Sandbox
 
 
 E2B_API_KEY = os.getenv("E2B_API_KEY")
-print(f"e2b (og): '{E2B_API_KEY}'")
 DEFAULT_MAX_TOKENS = 512
 SANDBOXES = {}
 TMP_DIR = './tmp/'
@@ -53,7 +52,6 @@ custom_css = """
 
 
 def update_placeholder_text():
-    print(f"e2b: '{E2B_API_KEY}'")
     desktop = Sandbox(api_key=E2B_API_KEY, resolution=(1024, 768), dpi=96)
     desktop.stream.start(require_auth=True)
     auth_key = desktop.stream.get_auth_key()
