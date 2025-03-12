@@ -50,6 +50,18 @@ custom_css = """
 }
 """
 
+html_template = """
+    <div class="sandbox-outer-wrapper">
+      <div class="sandbox-container">
+          <img src="https://huggingface.co/datasets/lvwerra/admin/resolve/main/desktop_scaled.png" class="sandbox-background" />
+          <iframe 
+              src="{stream_url}" 
+              class="sandbox-iframe"
+              allowfullscreen>
+          </iframe>
+      </div>
+    </div>"""
+
 
 def update_placeholder_text(request: gr.Request):
 
@@ -62,18 +74,7 @@ def update_placeholder_text(request: gr.Request):
     auth_key = desktop.stream.get_auth_key()
     stream_url = desktop.stream.get_url(auth_key=auth_key)
     
-    html_content = f"""
-    <div class="sandbox-outer-wrapper">
-      <div class="sandbox-container">
-          <img src="https://huggingface.co/datasets/lvwerra/admin/resolve/main/desktop_scaled.png" class="sandbox-background" />
-          <iframe 
-              src="{stream_url}" 
-              class="sandbox-iframe"
-              allowfullscreen>
-          </iframe>
-      </div>
-    </div>
-    """
+    html_content = html_template.format(stream_url=stream_url)
     return html_content
 
 # Create a Gradio app with Blocks
@@ -82,7 +83,7 @@ with gr.Blocks(css=custom_css) as demo:
     
     # HTML output with simulated image and iframe
     html_output = gr.HTML(
-        value=update_placeholder_text(),
+        value=html_template,
         label="Output"
     )
 
@@ -101,7 +102,8 @@ with gr.Blocks(css=custom_css) as demo:
         inputs=None,
         outputs=[html_output]
     )
-    
+
+    demo.load(update_placeholder_text, None, html_output)
 
 # Launch the app
 if __name__ == "__main__":
