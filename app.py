@@ -4,6 +4,7 @@ from e2b_desktop import Sandbox
 
 
 E2B_API_KEY = os.environ["E2B_API_KEY"]
+print(f"e2b (og): '{E2B_API_KEY}'")
 DEFAULT_MAX_TOKENS = 512
 SANDBOXES = {}
 TMP_DIR = './tmp/'
