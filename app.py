@@ -51,8 +51,13 @@ custom_css = """
 """
 
 
-def update_placeholder_text():
-    desktop = Sandbox(api_key=E2B_API_KEY, resolution=(1024, 768), dpi=96)
+def update_placeholder_text(request: gr.Request):
+
+    if request.session_hash not in SANDBOXES:
+        SANDBOXES[request.session_hash] = Sandbox(api_key=E2B_API_KEY, resolution=(1024, 768), dpi=96)
+    desktop = SANDBOXES[request.session_hash]
+    
+    #desktop = Sandbox(api_key=E2B_API_KEY, resolution=(1024, 768), dpi=96)
     desktop.stream.start(require_auth=True)
     auth_key = desktop.stream.get_auth_key()
     stream_url = desktop.stream.get_url(auth_key=auth_key)
