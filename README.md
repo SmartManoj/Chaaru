@@ -1,7 +1,7 @@
 ---
-title: Os Agent
-emoji: 📚
-colorFrom: gray
+title: OS Agent
+emoji: 🤖🖥️
+colorFrom: red
 colorTo: gray
 sdk: gradio
 sdk_version: 5.20.1
