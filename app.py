@@ -2,7 +2,7 @@ import gradio as gr
 import os
 import shutil
 from e2b_desktop import Sandbox
-from huggingface_hub import upload_folder
+from huggingface_hub import upload_folder, login
 from smolagents.monitoring import LogLevel
 from textwrap import dedent
 
@@ -17,6 +17,7 @@ if not os.path.exists(TMP_DIR):
     os.makedirs(TMP_DIR)
 
 model = QwenVLAPIModel()
+login(token=os.getenv("HUGGINGFACE_API_KEY"))
 
 custom_css = """
 /* Your existing CSS */
