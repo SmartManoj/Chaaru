@@ -279,10 +279,9 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
     def store_metadata_to_file(self, agent) -> None:
         metadata_path = os.path.join(self.data_dir, "metadata.json")
         output = {}
-        output['memory'] = self.write_memory_to_messages()
-        output['total_token_counts']  = agent.monitor.get_total_token_counts()
+        output_memory  = self.write_memory_to_messages()
         a = open(metadata_path,"w")
-        a.write(json.dumps(output))
+        a.write(json.dumps(output_memory))
         a.close()
 
     def write_memory_to_messages(self) -> List[Dict[str, Any]]:
