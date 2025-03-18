@@ -188,6 +188,23 @@ function() {
             }
         }
     };
+
+    const resetBSOD = function() {
+        console.log("Resetting BSOD display");
+        const iframe = document.getElementById('sandbox-iframe');
+        const bsod = document.getElementById('bsod-image');
+        
+        if (iframe && bsod) {
+            if (bsod.style.display === 'block') {
+                // BSOD is currently showing, reset it
+                iframe.style.display = 'block';
+                bsod.style.display = 'none';
+                console.log("BSOD reset complete");
+                return true; // Indicates reset was performed
+            }
+        }
+        return false; // No reset needed
+    };
     
     // Function to monitor for error messages
     const monitorForErrors = function() {
@@ -215,6 +232,9 @@ function() {
     // Also monitor for errors after button clicks
     document.addEventListener('click', function(e) {
         if (e.target.tagName === 'BUTTON') {
+            if (e.target.innerText === "Let's go!") {
+                resetBSOD();
+            }
             setTimeout(monitorForErrors, 3000);
         }
     });
@@ -412,9 +432,23 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     # Text input for task
     task_input = gr.Textbox(
         value="Find picture of cute puppies",
-        label="Enter your command"
+        label="Enter your command",
     )
-    
+
+    # Examples
+    gr.Examples(
+        examples=[
+            "Check the bike commute time between Boll and Bern",
+            "Open a text editor and write 'Hello World'",
+            "Create a simple drawing in paint",
+            "Distract me"
+        ],
+        inputs = task_input,
+        label= "Example Tasks",
+        examples_per_page=4
+    )
+
+
     # Results output
     results_output = gr.Textbox(
         label="Results",
