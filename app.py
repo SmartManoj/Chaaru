@@ -383,7 +383,6 @@ def run_agent_task(task_input, interactive_mode, request: gr.Request):
     
     try:
         # Run the agent
-        r
         result = agent.run(full_task)
         save_final_status(data_dir, "completed", details = result)
         
