@@ -196,7 +196,7 @@ function() {
             const resultsElements = document.querySelectorAll('textarea, .output-text');
             for (let elem of resultsElements) {
                 const content = elem.value || elem.innerText || '';
-                if (content.includes('Error running agent:')) {
+                if (content.includes('Error running agent')) {
                     console.log("Error detected!");
                     showBSOD('Error');
                     clearInterval(resultsInterval);
@@ -327,8 +327,6 @@ def update_html(interactive_mode, request: gr.Request):
         stream_url=stream_url,
         status_class=status_class,
         status_text=status_text,
-        iframe_style="display: block;",
-        bsod_style="display: none;"
     )
 
     # Add hidden field with creation time for JavaScript to use
@@ -392,7 +390,7 @@ def run_agent_task(task_input, request: gr.Request):
         error_message = f"Error running agent: {str(e)} Details {traceback.format_exc()}"
         save_final_status(data_dir, "failed", details = error_message)
         print(error_message)
-        return error_message
+        return "Error running agent"
     
     finally:
         upload_to_hf_and_remove(data_dir)
