@@ -16,8 +16,8 @@ E2B_API_KEY = os.getenv("E2B_API_KEY")
 SANDBOXES = {}
 SANDBOX_METADATA = {}
 SANDBOX_TIMEOUT = 300
-WIDTH = 1920
-HEIGHT = 1440
+WIDTH = 1280
+HEIGHT = 960
 TMP_DIR = './tmp/'
 if not os.path.exists(TMP_DIR):
     os.makedirs(TMP_DIR)
@@ -56,11 +56,11 @@ custom_css = """
     position: absolute;
     top: 10%;
     left: 25%;
-    width: 1928px;
-    height: 1448px;
+    width: 1288px;
+    height: 968px;
     border: 4px solid #444444;
     transform-origin: 0 0;
-    transform: scale(0.207);
+    transform: scale(0.312);
 }
 
 /* Status indicator light */
@@ -345,7 +345,7 @@ def save_final_status(folder, status, details = None):
     a.write(json.dumps({"status":status,"details":str(details)}))
     a.close()
 
-def run_agent_task(task_input, interactive_mode, request: gr.Request):
+def run_agent_task(task_input, request: gr.Request):
     session_hash = request.session_hash
     interaction_id = generate_interaction_id(request)
     desktop = get_or_create_sandbox(session_hash)
@@ -382,29 +382,26 @@ def run_agent_task(task_input, interactive_mode, request: gr.Request):
     """)
     
     try:
+
         # Run the agent
         result = agent.run(full_task)
-        save_final_status(data_dir, "completed", details = result)
-        
-        interactive_mode = True        
-        return f"Task completed: {result}", update_html(interactive_mode, request)
+        save_final_status(data_dir, "completed", details = result)        
+        return f"Task completed: {result}"
+
     except Exception as e:
         error_message = f"Error running agent: {str(e)} Details {traceback.format_exc()}"
         save_final_status(data_dir, "failed", details = error_message)
-
         print(error_message)
-        interactive_mode = True
-        # return error_message, update_html(interactive_mode, request)
         return error_message
+    
     finally:
         upload_to_hf_and_remove(data_dir)
-
 
 # Create a Gradio app with Blocks
 with gr.Blocks(css=custom_css, js=custom_js) as demo:
     gr.HTML("""<h1 style="text-align: center">Personal Computer Assistant</h1>""")
     
-    # HTML output with simulated image and iframe
+    # HTML output with simulated image and iframe - default to interactive
     html_output = gr.HTML(
         value=html_template.format(
             stream_url="",
@@ -420,12 +417,6 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
         label="Enter your command"
     )
     
-    # Interactive mode checkbox
-    interactive_mode = gr.Checkbox(
-        value=False,
-        label="Interactive Mode"
-    )
-
     # Results output
     results_output = gr.Textbox(
         label="Results",
@@ -436,22 +427,42 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     # Update button
     update_btn = gr.Button("Let's go!")
     
-    # Connect the components for displaying the sandbox
-    interactive_mode.change(
-        fn=update_html,
-        inputs=[interactive_mode],
-        outputs=[html_output]
+    # Function to set view-only mode
+    def set_view_only(task_input, request: gr.Request):
+        return update_html(False, request)
+    
+    # Function to set interactive mode
+    def set_interactive_mode(request: gr.Request):
+        return update_html(True, request)
+    
+    # Chain the events
+    # 1. Set view-only mode when button is clicked
+    view_only_event = update_btn.click(
+        fn=set_view_only,
+        inputs=[task_input], 
+        outputs=html_output
     )
     
-    # Connect the components for running the agent
-    update_btn.click(
+    # 2. Then run the agent task
+    task_result = view_only_event.then(
         fn=run_agent_task,
-        inputs=[task_input, interactive_mode],
-        outputs=[results_output]
+        inputs=[task_input],
+        outputs=results_output
     )
-
-    # Load the sandbox on app start
-    demo.load(update_html, [interactive_mode], html_output)
+    
+    # 3. Then set back to interactive mode
+    task_result.then(
+        fn=set_interactive_mode,
+        inputs=None,  # No inputs needed here
+        outputs=html_output
+    )
+    
+    # Load the sandbox on app start with initial HTML
+    demo.load(
+        fn=update_html,
+        inputs=[gr.Checkbox(value=True, visible=False)],  # Hidden checkbox with True value
+        outputs=html_output
+    )
 
 # Launch the app
 if __name__ == "__main__":
