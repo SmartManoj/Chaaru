@@ -291,7 +291,6 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         last_step = self.memory.steps[-1] if self.memory.steps else None
 
         for memory_step in self.memory.steps:
-            print(f"Memory step {memory_step}")
             if hasattr(memory_step, "task") and memory_step.task:
                 # Add task message if it exists
                 messages.append({
