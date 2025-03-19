@@ -219,11 +219,28 @@ function() {
                     console.log("Error detected!");
                     showBSOD('Error');
                     clearInterval(resultsInterval);
+                    window.agentFailed = true;
                     break;
                 }
             }
         }, 1000);
     };
+
+    // Add a new function to conditionally go to interactive mode
+    window.shouldSwitchToInteractive = function() {
+        const resultsElements = document.querySelectorAll('textarea, .output-text');
+        for (let elem of resultsElements) {
+            const content = elem.value || elem.innerText || '';
+            // If we see an error message or our flag is set, don't switch to interactive
+            if (content.includes('Error running agent') || window.agentFailed === true) {
+                console.log("Error detected, not switching to interactive mode");
+                return false;
+            }
+        }
+        console.log("No errors detected, switching to interactive mode");
+        return true;
+    };
+    
     
     // Start monitoring for timeouts immediately
     checkSandboxTimeout();
@@ -236,6 +253,7 @@ function() {
         if (e.target.tagName === 'BUTTON') {
             if (e.target.innerText === "Let's go!") {
                 resetBSOD();
+                window.agentFailed = false;
             }
             setTimeout(monitorForErrors, 3000);
         }
@@ -485,26 +503,12 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     )
     
     # # 3. Then set back to interactive mode
-    # task_result.then(
-    #     fn=set_interactive_mode,
-    #     inputs=None,  # No inputs needed here
-    #     outputs=html_output
-    # )
-
-    # 3. Define a function to check the result and only return to interactive mode if successful
-    def check_result_and_set_mode(result, request: gr.Request):
-        # Only switch back to interactive mode if the agent completed successfully
-        if result.startswith("Task completed:"):
-            return update_html(True, request)
-        else:
-            # Keep the view-only mode (with BSOD displayed by JS)
-            return None
-
-    # 3. Then conditionally set back to interactive mode based on success
     task_result.then(
-        fn=check_result_and_set_mode,
-        inputs=[results_output],  # Pass the result text to check
-        outputs=html_output
+        fn=set_interactive_mode,
+        inputs=None,  # No inputs needed here
+        outputs=html_output,
+        _js="() => window.shouldSwitchToInteractive() ? [] : null"
+        
     )
     
     # Load the sandbox on app start with initial HTML
