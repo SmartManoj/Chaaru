@@ -284,48 +284,6 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         a.write(json.dumps(output_memory))
         a.close()
 
-    def write_memory_to_messages(self) -> List[Dict[str, Any]]:
-        """Convert memory to messages for the model"""
-        messages = [{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.system_prompt}]}]
-
-        for memory_step in self.memory.steps:
-            if hasattr(memory_step, "task") and memory_step.task:
-                # Add task message if it exists
-                messages.append({
-                    "role": MessageRole.USER, 
-                    "content": [{"type": "text", "text": memory_step.task}]
-                })
-                continue  # Skip to next step after adding task
-                
-            # Process model output message if it exists
-            if hasattr(memory_step, "model_output") and memory_step.model_output:
-                messages.append({
-                    "role": MessageRole.ASSISTANT, 
-                    "content": [{"type": "text", "text": memory_step.model_output}]
-                })
-            
-            # Process observations and images
-            observation_content = []
-            
-
-            # Add text observations if any
-            if hasattr(memory_step, "observations") and memory_step.observations:
-                observation_content.append({"type": "text", "text": f"Observation: {memory_step.observations}"})
-            
-            # Add error if present and didn't already add observations
-            if hasattr(memory_step, "error") and memory_step.error:
-                observation_content.append({"type": "text", "text": f"Error: {memory_step.error}"})
-            
-            # Add user message with content if we have any
-            if observation_content:
-                messages.append({
-                    "role": MessageRole.USER,
-                    "content": observation_content
-                })
-        
-        return messages
-
-
     def write_memory_to_messages(self, summary_mode: Optional[bool] = False) -> List[Dict[str, Any]]:
         """Convert memory to messages for the model"""
         messages = [{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.system_prompt}]}]
@@ -340,7 +298,11 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
                     "content": [{"type": "text", "text": memory_step.task}]
                 })
                 continue  # Skip to next step after adding task
-                
+            if hasattr(memory_step, "model_output_message_plan") and memory_step.model_output_message_plan:
+                messages.append({
+                    "role": MessageRole.ASSISTANT,
+                    "content": [{"type": "text", "text": memory_step.model_output_message_plan.content, "agent_state": "plan"}]
+                })
             # Process model output message if it exists
             if hasattr(memory_step, "model_output") and memory_step.model_output:
                 messages.append({
@@ -393,6 +355,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         # print(f"Created {len(messages)} messages with {image_count} image paths")
 
         return messages
+
     
     def take_snapshot_callback(self, memory_step: ActionStep, agent=None) -> None:
         """Callback that takes a screenshot + memory snapshot after a step completes"""
