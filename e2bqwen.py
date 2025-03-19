@@ -435,22 +435,134 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
 
 
 
+# class QwenVLAPIModel(Model):
+#     """Model wrapper for Qwen2.5VL API"""
+    
+#     def __init__(
+#         self, 
+#         model_path: str = "Qwen/Qwen2.5-VL-72B-Instruct", 
+#         provider: str = "hyperbolic"
+#     ):
+#         super().__init__()
+#         self.model_path = model_path
+#         self.model_id = model_path
+#         self.provider = provider
+        
+#         self.client = InferenceClient(
+#             provider=self.provider,
+#         )
+        
+#     def __call__(
+#         self, 
+#         messages: List[Dict[str, Any]], 
+#         stop_sequences: Optional[List[str]] = None, 
+#         **kwargs
+#     ) -> ChatMessage:
+#         """Convert a list of messages to an API request and return the response"""
+#         # # Count images in messages - debug
+#         # image_count = 0
+#         # for msg in messages:
+#         #     if isinstance(msg.get("content"), list):
+#         #         for item in msg["content"]:
+#         #             if isinstance(item, dict) and item.get("type") == "image":
+#         #                 image_count += 1
+        
+#         # print(f"QwenVLAPIModel received {len(messages)} messages with {image_count} images")
+        
+#         # Format the messages for the API
+
+#         formatted_messages = []
+        
+#         for msg in messages:
+#             role = msg["role"]
+#             if isinstance(msg["content"], list):
+#                 content = []
+#                 for item in msg["content"]:
+#                     if item["type"] == "text":
+#                         content.append({"type": "text", "text": item["text"]})
+#                     elif item["type"] == "image":
+#                         # Handle image path or direct image object
+#                         if isinstance(item["image"], str):
+#                             # Image is a path
+#                             with open(item["image"], "rb") as image_file:
+#                                 base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+#                         else:
+#                             # Image is a PIL image or similar object
+#                             img_byte_arr = io.BytesIO()
+#                             item["image"].save(img_byte_arr, format="PNG")
+#                             base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
+                        
+#                         content.append({
+#                             "type": "image_url",
+#                             "image_url": {
+#                                 "url": f"data:image/png;base64,{base64_image}"
+#                             }
+#                         })
+#             else:
+#                 content = [{"type": "text", "text": msg["content"]}]
+                
+#             formatted_messages.append({"role": role, "content": content})
+        
+#         # Make the API request
+#         completion = self.client.chat.completions.create(
+#             model=self.model_path, 
+#             messages=formatted_messages, 
+#             max_tokens=kwargs.get("max_new_tokens", 512),
+#             temperature=kwargs.get("temperature", 0.7),
+#             top_p=kwargs.get("top_p", 0.9),
+#         )
+        
+#         # Extract the response text
+#         output_text = completion.choices[0].message.content
+        
+#         return ChatMessage(role=MessageRole.ASSISTANT, content=output_text)
+    
+#     def to_dict(self) -> Dict[str, Any]:
+#         """Convert the model to a dictionary"""
+#         return {
+#             "class": self.__class__.__name__,
+#             "model_path": self.model_path,
+#             "provider": self.provider,
+#             # We don't save the API key for security reasons
+#         }
+    
+#     @classmethod
+#     def from_dict(cls, data: Dict[str, Any]) -> "QwenVLAPIModel":
+#         """Create a model from a dictionary"""
+#         return cls(
+#             model_path=data.get("model_path", "Qwen/Qwen2.5-VL-72B-Instruct"),
+#             provider=data.get("provider", "hyperbolic"),
+#         )
 class QwenVLAPIModel(Model):
-    """Model wrapper for Qwen2.5VL API"""
+    """Model wrapper for Qwen2.5VL API with fallback mechanism"""
     
     def __init__(
         self, 
-        model_path: str = "Qwen/Qwen2.5-VL-72B-Instruct", 
-        provider: str = "hyperbolic"
+        model_path: str = "Qwen/Qwen2.5-VL-72B-Instruct",
+        provider: str = "hyperbolic",
+        hf_token: str = None,
+        hf_base_url: str = "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"
     ):
         super().__init__()
         self.model_path = model_path
         self.model_id = model_path
         self.provider = provider
+        self.hf_token = hf_token
+        self.hf_base_url = hf_base_url
         
-        self.client = InferenceClient(
+        # Initialize hyperbolic client
+        self.hyperbolic_client = InferenceClient(
             provider=self.provider,
         )
+        
+        # Initialize HF OpenAI-compatible client if token is provided
+        self.hf_client = None
+        if hf_token:
+            from openai import OpenAI
+            self.hf_client = OpenAI(
+                base_url=self.hf_base_url,
+                api_key=self.hf_token
+            )
         
     def __call__(
         self, 
@@ -458,25 +570,40 @@ class QwenVLAPIModel(Model):
         stop_sequences: Optional[List[str]] = None, 
         **kwargs
     ) -> ChatMessage:
-        """Convert a list of messages to an API request and return the response"""
-        # # Count images in messages - debug
-        # image_count = 0
-        # for msg in messages:
-        #     if isinstance(msg.get("content"), list):
-        #         for item in msg["content"]:
-        #             if isinstance(item, dict) and item.get("type") == "image":
-        #                 image_count += 1
+        """Convert a list of messages to an API request with fallback mechanism"""
         
-        # print(f"QwenVLAPIModel received {len(messages)} messages with {image_count} images")
+        # Format messages once for both APIs
+        formatted_messages = self._format_messages(messages)
         
-        # Format the messages for the API
-
+        # First try the HF endpoint if available
+        if self.hf_client:
+            try:
+                completion = self._call_hf_endpoint(
+                    formatted_messages, 
+                    stop_sequences, 
+                    **kwargs
+                )
+                return ChatMessage(role=MessageRole.ASSISTANT, content=completion)
+            except Exception as e:
+                print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
+                # Continue to fallback
+        
+        # Fallback to hyperbolic
+        try:
+            return self._call_hyperbolic(formatted_messages, stop_sequences, **kwargs)
+        except Exception as e:
+            raise Exception(f"Both endpoints failed. Last error: {e}")
+    
+    def _format_messages(self, messages: List[Dict[str, Any]]):
+        """Format messages for API requests - works for both endpoints"""
+        
         formatted_messages = []
         
         for msg in messages:
             role = msg["role"]
+            content = []
+            
             if isinstance(msg["content"], list):
-                content = []
                 for item in msg["content"]:
                     if item["type"] == "text":
                         content.append({"type": "text", "text": item["text"]})
@@ -499,14 +626,48 @@ class QwenVLAPIModel(Model):
                             }
                         })
             else:
+                # Plain text message
                 content = [{"type": "text", "text": msg["content"]}]
-                
+            
             formatted_messages.append({"role": role, "content": content})
         
-        # Make the API request
-        completion = self.client.chat.completions.create(
-            model=self.model_path, 
-            messages=formatted_messages, 
+        return formatted_messages
+    
+    def _call_hf_endpoint(self, formatted_messages, stop_sequences=None, **kwargs):
+        """Call the Hugging Face OpenAI-compatible endpoint"""
+        
+        # Extract parameters with defaults
+        max_tokens = kwargs.get("max_new_tokens", 512)
+        temperature = kwargs.get("temperature", 0.7)
+        top_p = kwargs.get("top_p", 0.9)
+        stream = kwargs.get("stream", False)
+        
+        completion = self.hf_client.chat.completions.create(
+            model="tgi",  # Model name for the endpoint
+            messages=formatted_messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            stream=stream,
+            stop=stop_sequences
+        )
+        
+        if stream:
+            # For streaming responses, return a generator
+            def stream_generator():
+                for chunk in completion:
+                    yield chunk.choices[0].delta.content or ""
+            return stream_generator()
+        else:
+            # For non-streaming, return the full text
+            return completion.choices[0].message.content
+    
+    def _call_hyperbolic(self, formatted_messages, stop_sequences=None, **kwargs):
+        """Call the hyperbolic API"""
+        
+        completion = self.hyperbolic_client.chat.completions.create(
+            model=self.model_path,
+            messages=formatted_messages,
             max_tokens=kwargs.get("max_new_tokens", 512),
             temperature=kwargs.get("temperature", 0.7),
             top_p=kwargs.get("top_p", 0.9),
@@ -523,7 +684,8 @@ class QwenVLAPIModel(Model):
             "class": self.__class__.__name__,
             "model_path": self.model_path,
             "provider": self.provider,
-            # We don't save the API key for security reasons
+            "hf_base_url": self.hf_base_url,
+            # We don't save the API keys for security reasons
         }
     
     @classmethod
@@ -532,4 +694,5 @@ class QwenVLAPIModel(Model):
         return cls(
             model_path=data.get("model_path", "Qwen/Qwen2.5-VL-72B-Instruct"),
             provider=data.get("provider", "hyperbolic"),
+            hf_base_url=data.get("hf_base_url", "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"),
         )

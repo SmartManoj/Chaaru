@@ -22,8 +22,10 @@ TMP_DIR = './tmp/'
 if not os.path.exists(TMP_DIR):
     os.makedirs(TMP_DIR)
 
-model = QwenVLAPIModel()
-login(token=os.getenv("HUGGINGFACE_API_KEY"))
+hf_token = os.getenv("HUGGINGFACE_API_KEY")
+login(token=hf_token)
+model = QwenVLAPIModel(hf_token = hf_token)
+
 
 custom_css = """
 /* Your existing CSS */
