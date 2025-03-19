@@ -484,10 +484,26 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
         outputs=results_output
     )
     
-    # 3. Then set back to interactive mode
+    # # 3. Then set back to interactive mode
+    # task_result.then(
+    #     fn=set_interactive_mode,
+    #     inputs=None,  # No inputs needed here
+    #     outputs=html_output
+    # )
+
+    # 3. Define a function to check the result and only return to interactive mode if successful
+    def check_result_and_set_mode(result, request: gr.Request):
+        # Only switch back to interactive mode if the agent completed successfully
+        if result.startswith("Task completed:"):
+            return update_html(True, request)
+        else:
+            # Keep the view-only mode (with BSOD displayed by JS)
+            return None
+
+    # 3. Then conditionally set back to interactive mode based on success
     task_result.then(
-        fn=set_interactive_mode,
-        inputs=None,  # No inputs needed here
+        fn=check_result_and_set_mode,
+        inputs=[results_output],  # Pass the result text to check
         outputs=html_output
     )
     
