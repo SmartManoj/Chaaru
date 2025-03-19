@@ -463,8 +463,9 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     update_btn = gr.Button("Let's go!")
     
     # Function to set view-only mode
-    def set_view_only(task_input, request: gr.Request):
-        return update_html(False, request)
+    def clear_and_set_view_only(task_input, request: gr.Request):
+        # First clear the results, then set view-only mode
+        return "", update_html(False, request)
     
     # Function to set interactive mode
     def set_interactive_mode(request: gr.Request):
@@ -484,9 +485,9 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     # Chain the events
     # 1. Set view-only mode when button is clicked
     view_only_event = update_btn.click(
-        fn=set_view_only,
+        fn=clear_and_set_view_only,
         inputs=[task_input], 
-        outputs=html_output
+        outputs=[results_output, html_output]
     )
 
     # 2. Then run the agent task
