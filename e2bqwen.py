@@ -398,6 +398,16 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         """Callback that takes a screenshot + memory snapshot after a step completes"""
         current_step = memory_step.step_number
         print(f"Taking screenshot for step {current_step}")
+        # Check if desktop is still running
+        if not self.desktop.is_running():
+            print("Desktop is no longer running. Terminating agent.")
+            self.close()
+            # Add a final observation indicating why the agent was terminated
+            memory_step.observations = "Desktop session ended. Agent terminated."
+            # Store final metadata before exiting
+            self.store_metadata_to_file(agent)
+            return  # Exit the callback without attempting to take a screenshot
+        
         try:
             time.sleep(2.0) # Let things happen on the desktop
             screenshot_bytes = self.desktop.screenshot()
