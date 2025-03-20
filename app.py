@@ -444,9 +444,9 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
         # Examples
         gr.Examples(
             examples=[
-                "Check the bike commute time between Boll and Bern",
-                "Open a text editor and write 'Hello World'",
-                "Check when is the next F1 race",
+                "Check the commuting time between Bern and Zurich",
+                "Write 'Hello World' in a text editor",
+                "Find when is the next F1 race",
                 "Search a flight Paris - Berlin for tomorrow"
             ],
             inputs = task_input,
