@@ -121,7 +121,7 @@ custom_css = """
 
 
 html_template = """
-    <h1 style="text-align: center">Personal Computer Assistant</h1>
+    <h2 style="text-align: center">Personal Computer Assistant</h2>
     <div class="sandbox-outer-wrapper">
       <div class="sandbox-container">
           <img src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/desktop2.png" class="sandbox-background" />
