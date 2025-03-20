@@ -39,8 +39,8 @@ custom_css = """
 
 .sandbox-container {
     position: relative;
-    width: 800px;
-    height: 500px;
+    width: 1024px;
+    height: 811px;
     flex-shrink: 0;
     overflow: hidden;
 }
@@ -56,22 +56,22 @@ custom_css = """
 
 .sandbox-iframe {
     position: absolute;
-    top: 10%;
-    left: 25%;
+    top: 7%;
+    left: 18%;
     width: 1288px;
     height: 968px;
     border: 4px solid #444444;
     transform-origin: 0 0;
-    transform: scale(0.312);
+    transform: scale(0.51);
 }
 
 /* Status indicator light */
 .status-indicator {
     position: absolute;
-    bottom: 25.5%;
-    left: 26.7%;
-    width: 15px;
-    height: 15px;
+    bottom: 28.6%;
+    left: 20.1%;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     border: 2px solid black;
     z-index: 100;
@@ -79,9 +79,9 @@ custom_css = """
 
 .status-text {
     position: absolute;
-    bottom: 25.0%;
-    left: 28.6%;
-    font-size: 12px;
+    bottom: 28.4%;
+    left: 22.5%;
+    font-size: 16px;
     font-weight: bold;
     color: black;
     background-color: white;
@@ -121,9 +121,10 @@ custom_css = """
 
 
 html_template = """
+    <h1 style="text-align: center">Personal Computer Assistant</h1>
     <div class="sandbox-outer-wrapper">
       <div class="sandbox-container">
-          <img src="https://huggingface.co/datasets/lvwerra/admin/resolve/main/desktop_scaled.png" class="sandbox-background" />
+          <img src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/desktop2.png" class="sandbox-background" />
           <div class="status-text">{status_text}</div>
           <div class="status-indicator {status_class}"></div>
           <iframe id="sandbox-iframe"
@@ -135,7 +136,7 @@ html_template = """
           <img id="bsod-image"
               src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/blue_screen_of_death.gif"
               class="bsod-image"
-              style="display: none; position: absolute; top: 10%; left: 25%; width: 400px; height: 300px; border: 4px solid #444444;"
+              style="display: none; position: absolute; top: 7%; left: 18%; width: 657px; height: 494px; border: 4px solid #444444;"
           />
       </div>
     </div>
@@ -422,7 +423,7 @@ def run_agent_task(task_input, request: gr.Request):
 
 # Create a Gradio app with Blocks
 with gr.Blocks(css=custom_css, js=custom_js) as demo:
-    gr.HTML("""<h1 style="text-align: center">Personal Computer Assistant</h1>""")
+    #gr.HTML("""<h1 style="text-align: center">Personal Computer Assistant</h1>""")
     
     # HTML output with simulated image and iframe - default to interactive
     html_output = gr.HTML(
@@ -433,25 +434,25 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
         ),
         label="Output"
     )
+    with gr.Row():
+        # Text input for task
+        task_input = gr.Textbox(
+            value="Find picture of cute puppies",
+            label="Enter your command",
+        )
 
-    # Text input for task
-    task_input = gr.Textbox(
-        value="Find picture of cute puppies",
-        label="Enter your command",
-    )
-
-    # Examples
-    gr.Examples(
-        examples=[
-            "Check the bike commute time between Boll and Bern",
-            "Open a text editor and write 'Hello World'",
-            "Check when is the next F1 race",
-            "Search a flight Paris - Berlin for tomorrow"
-        ],
-        inputs = task_input,
-        label= "Example Tasks",
-        examples_per_page=4
-    )
+        # Examples
+        gr.Examples(
+            examples=[
+                "Check the bike commute time between Boll and Bern",
+                "Open a text editor and write 'Hello World'",
+                "Check when is the next F1 race",
+                "Search a flight Paris - Berlin for tomorrow"
+            ],
+            inputs = task_input,
+            label= "Example Tasks",
+            examples_per_page=4
+        )
 
 
     # Results output
