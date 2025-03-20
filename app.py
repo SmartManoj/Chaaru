@@ -413,6 +413,8 @@ def run_agent_task(task_input, request: gr.Request):
         error_message = f"Error running agent: {str(e)} Details {traceback.format_exc()}"
         save_final_status(data_dir, "failed", details = error_message)
         print(error_message)
+        if 'Both endpoints failed' in error_message:
+            return "Error running agent - Model inference endpoints not ready. Try again later."
         return "Error running agent"
     
     finally:
