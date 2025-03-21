@@ -10,6 +10,7 @@ from textwrap import dedent
 import time
 from threading import Timer
 
+
 from e2bqwen import QwenVLAPIModel, E2BVisionAgent
 
 E2B_API_KEY = os.getenv("E2B_API_KEY")
@@ -242,9 +243,34 @@ function() {
             setTimeout(monitorForErrors, 3000);
         }
     });
+
+    // Set up an interval to click the refresh button every 5 seconds
+    setInterval(function() {
+        const btn = document.getElementById('refresh-log-btn');
+        if (btn) btn.click();
+    }, 5000);
 }
 """
-
+def write_to_console_log(log_file_path, message):
+    """
+    Appends a message to the specified log file with a newline character.
+    
+    Parameters:
+        log_file_path (str): Path to the log file
+        message (str): Message to append to the log file
+    """
+    if log_file_path is None:
+        return False
+    try:
+        # Open the file in append mode
+        with open(log_file_path, 'a') as log_file:
+            # Write the message followed by a newline
+            log_file.write(f"{message}\n")
+        return True
+    except Exception as e:
+        print(f"Error writing to log file: {str(e)}")
+        return False
+    
 def upload_to_hf_and_remove(folder_path):
 
     repo_id = "open-agents/os-agent-logs"    
@@ -367,8 +393,38 @@ def save_final_status(folder, status, details = None):
     a.write(json.dumps({"status":status,"details":str(details)}))
     a.close()
 
-def run_agent_task(task_input, request: gr.Request):
+def get_log_file_path(session_hash):
+    """
+    Creates a log file path based on the session hash.
+    Makes sure the directory exists.
+    """
+    log_dir = os.path.join(TMP_DIR, session_hash)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
+    return os.path.join(log_dir, 'console.log')
+
+def initialize_session(interactive_mode, request: gr.Request):
     session_hash = request.session_hash
+    # Create session-specific log file
+    log_path = get_log_file_path(session_hash)
+    # Initialize log file if it doesn't exist
+    if not os.path.exists(log_path):
+        with open(log_path, 'w') as f:
+            f.write(f"Ready to go...\n")
+    # Return HTML and session hash
+    return update_html(interactive_mode, request), session_hash
+
+# Function to read log content that gets the path from session hash
+def update_terminal_from_session(session_hash):
+    if not session_hash:
+        return "Waiting for session..."
+    
+    log_path = get_log_file_path(session_hash)
+    return read_log_content(log_path)
+
+    
+def run_agent_task(task_input, session_hash, request: gr.Request):
     interaction_id = generate_interaction_id(request)
     desktop = get_or_create_sandbox(session_hash)
     
@@ -377,7 +433,7 @@ def run_agent_task(task_input, request: gr.Request):
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     
-
+    log_file = get_log_file_path(session_hash)
     # Create the agent
     agent = E2BVisionAgent(
         model=model,
@@ -386,6 +442,7 @@ def run_agent_task(task_input, request: gr.Request):
         max_steps=200,
         verbosity_level=LogLevel.INFO,
         planning_interval=5,
+        log_file = log_file
     )
     
     # Construct the full task with instructions
@@ -404,28 +461,28 @@ def run_agent_task(task_input, request: gr.Request):
     """)
     
     try:
-
         # Run the agent
         result = agent.run(full_task)
-        save_final_status(data_dir, "completed", details = result)        
-        return f"Task completed: {result}"
-
+        save_final_status(data_dir, "completed", details = result)
+        return f"Task completed: {result}", gr.update(visible=True), gr.update(visible=False)
+    
     except Exception as e:
         error_message = f"Error running agent: {str(e)} Details {traceback.format_exc()}"
         save_final_status(data_dir, "failed", details = error_message)
         print(error_message)
-        if 'Both endpoints failed' in error_message:
-            return "Error running agent - Model inference endpoints not ready. Try again later."
-        return "Error running agent"
+        error_result = "Error running agent - Model inference endpoints not ready. Try again later." if 'Both endpoints failed' in error_message else "Error running agent"
+        return error_result, gr.update(visible=True), gr.update(visible=False)
     
     finally:
         upload_to_hf_and_remove(data_dir)
 
+
+
 # Create a Gradio app with Blocks
 with gr.Blocks(css=custom_css, js=custom_js) as demo:
-    #gr.HTML("""<h1 style="text-align: center">Personal Computer Assistant</h1>""")
-    
-    # HTML output with simulated image and iframe - default to interactive
+    #Storing session hash in a state variable
+    session_hash_state = gr.State(None)
+
     html_output = gr.HTML(
         value=html_template.format(
             stream_url="",
@@ -435,13 +492,11 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
         label="Output"
     )
     with gr.Row():
-        # Text input for task
         task_input = gr.Textbox(
             value="Find picture of cute puppies",
             label="Enter your command",
         )
 
-        # Examples
         gr.Examples(
             examples=[
                 "Check the commuting time between Bern and Zurich",
@@ -452,23 +507,49 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
             label= "Example Tasks",
             examples_per_page=4
         )
+    
+    with gr.Group(visible=True) as terminal_container:
+        terminal = gr.Textbox(
+            value="Initializing...",
+            label='Console',
+            lines=5,
+            max_lines=10,
+            interactive=False
+        )
+        
+        # Hidden refresh button
+        refresh_btn = gr.Button("Refresh", visible=False, elem_id="refresh-log-btn")
+    
+    with gr.Group(visible=False) as results_container:
+        results_output = gr.Textbox(
+            label="Results",
+            interactive=False,
+            elem_id="results-output"
+        )
 
-
-    # Results output
-    results_output = gr.Textbox(
-        label="Results",
-        interactive=False,
-        elem_id="results-output"
-    )
-
-    # Update button
     update_btn = gr.Button("Let's go!")
     
+
+    def read_log_content(log_file, tail=4):
+        """Read the contents of a log file for a specific session"""
+        if not log_file:
+            return "Waiting for session..."
+
+        if not os.path.exists(log_file):
+            return "Waiting for machine from the future to boot..."
+        
+        try:
+            with open(log_file, 'r') as f:
+                lines = f.readlines()
+                return "".join(lines[-tail:] if len(lines) > tail else lines)
+        except Exception as e:
+            return f"Guru meditation: {str(e)}"
+        
     # Function to set view-only mode
     def clear_and_set_view_only(task_input, request: gr.Request):
         # First clear the results, then set view-only mode
-        return "", update_html(False, request)
-    
+        return "", update_html(False, request), gr.update(visible=False), gr.update(visible=True)
+
     # Function to set interactive mode
     def set_interactive_mode(request: gr.Request):
         return update_html(True, request)
@@ -484,34 +565,42 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
             # This will keep the BSOD visible
             return gr.update()
 
+
     # Chain the events
-    # 1. Set view-only mode when button is clicked
+    # 1. Set view-only mode when button is clicked and reset visibility
     view_only_event = update_btn.click(
         fn=clear_and_set_view_only,
         inputs=[task_input], 
-        outputs=[results_output, html_output]
+        outputs=[results_output, html_output, results_container, terminal_container]
     )
 
-    # 2. Then run the agent task
+    # 2. Then run the agent task and update visibility
     task_result = view_only_event.then(
         fn=run_agent_task,
-        inputs=[task_input],
-        outputs=results_output
+        inputs=[task_input,session_hash_state],
+        outputs=[results_output, results_container, terminal_container]
     )
 
-    # 3. Then check the result and conditionally set to interactive mode
+    # 3. Set interactive mode when task completes successfully
     task_result.then(
         fn=check_and_set_interactive,
-        inputs=[results_output],  # Pass the result text to check
+        inputs=[results_output],
         outputs=html_output
+    )
+ 
+    demo.load(
+        fn=initialize_session,
+        inputs=[gr.Checkbox(value=True, visible=False)],
+        outputs=[html_output, session_hash_state]
     )
     
-    # Load the sandbox on app start with initial HTML
-    demo.load(
-        fn=update_html,
-        inputs=[gr.Checkbox(value=True, visible=False)],  # Hidden checkbox with True value
-        outputs=html_output
+    # Connect refresh button to update terminal
+    refresh_btn.click(
+        fn=update_terminal_from_session,
+        inputs=[session_hash_state],
+        outputs=[terminal]
     )
+
 
 # Launch the app
 if __name__ == "__main__":

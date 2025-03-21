@@ -19,7 +19,26 @@ from smolagents.memory import ActionStep
 from smolagents.models import ChatMessage, MessageRole, Model
 from smolagents.monitoring import LogLevel
 
-
+def write_to_console_log(log_file_path, message):
+    """
+    Appends a message to the specified log file with a newline character.
+    
+    Parameters:
+        log_file_path (str): Path to the log file
+        message (str): Message to append to the log file
+    """
+    if log_file_path is None:
+        return False
+    try:
+        # Open the file in append mode
+        with open(log_file_path, 'a') as log_file:
+            # Write the message followed by a newline
+            log_file.write(f"{message}\n")
+        return True
+    except Exception as e:
+        print(f"Error writing to log file: {str(e)}")
+        return False
+    
 class E2BVisionAgent(CodeAgent):
     """Agent for e2b desktop automation with Qwen2.5VL vision capabilities"""
     def __init__(
@@ -31,14 +50,19 @@ class E2BVisionAgent(CodeAgent):
         max_steps: int = 200,
         verbosity_level: LogLevel = 4,
         planning_interval: int = 15,
+        log_file = None,
         **kwargs
     ):
         self.desktop = desktop
         self.data_dir = data_dir
+        self.log_path = log_file
+        write_to_console_log(self.log_path, "Booting agent...")
         self.planning_interval = planning_interval
         # Initialize Desktop
         self.width, self.height = self.desktop.get_screen_size()
         print(f"Screen size: {self.width}x{self.height}")
+        write_to_console_log(self.log_path, f"Desktop resolution detected: {self.width}x{self.height}")
+
 
 
         # Set up temp directory
@@ -65,7 +89,9 @@ class E2BVisionAgent(CodeAgent):
 
         # Add default tools
         self._setup_desktop_tools()
+        write_to_console_log(self.log_path, "Setting up agent tools...")
         self.step_callbacks.append(self.take_snapshot_callback)
+        write_to_console_log(self.log_path, "Studying an action plan... that will take a bit.")
 
 
     def initialize_system_prompt(self):
@@ -156,6 +182,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             """
             self.desktop.move_mouse(x, y)
             self.desktop.left_click()
+            write_to_console_log(self.log_path, f"Clicked at coordinates ({x}, {y})")
             return f"Clicked at coordinates ({x}, {y})"
 
         @tool
@@ -168,6 +195,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             """
             self.desktop.move_mouse(x, y)
             self.desktop.right_click()
+            write_to_console_log(self.log_path, f"Right-clicked at coordinates ({x}, {y})")
             return f"Right-clicked at coordinates ({x}, {y})"
 
         @tool
@@ -180,6 +208,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             """
             self.desktop.move_mouse(x, y)
             self.desktop.double_click()
+            write_to_console_log(self.log_path, f"Double-clicked at coordinates ({x}, {y})")
             return f"Double-clicked at coordinates ({x}, {y})"
 
         @tool
@@ -191,6 +220,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
                 y: The y coordinate (vertical position)
             """
             self.desktop.move_mouse(x, y)
+            write_to_console_log(self.log_path, f"Moved mouse to coordinates ({x}, {y})")
             return f"Moved mouse to coordinates ({x}, {y})"
 
         @tool
@@ -202,6 +232,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
                 delay_in_ms: Delay between keystrokes in milliseconds
             """
             self.desktop.write(text, delay_in_ms=delay_in_ms)
+            write_to_console_log(self.log_path, f"Typed text: '{text}'")
             return f"Typed text: '{text}'"
 
         @tool
@@ -214,6 +245,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             if key == "enter":
                 key = "Return"
             self.desktop.press(key)
+            write_to_console_log(self.log_path, f"Pressed key: {key}")
             return f"Pressed key: {key}"
 
         @tool
@@ -223,6 +255,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             Args:
             """
             self.desktop.press(["alt", "left"])
+            write_to_console_log(self.log_path, "Went back one page")
             return "Went back one page"
 
         @tool
@@ -234,6 +267,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
                 amount: The amount to scroll. A good amount is 1 or 2.
             """
             self.desktop.scroll(direction=direction, amount=amount)
+            write_to_console_log(self.log_path, f"Scrolled {direction} by {amount}")
             return f"Scrolled {direction} by {amount}"
 
         @tool
@@ -244,6 +278,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
                 seconds: Number of seconds to wait
             """
             time.sleep(seconds)
+            write_to_console_log(self.log_path, f"Waited for {seconds} seconds")
             return f"Waited for {seconds} seconds"
 
         @tool
@@ -260,6 +295,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             self.desktop.open(url)
             # Give it time to load
             time.sleep(2)
+            write_to_console_log(self.log_path, f"Opening URL: {url}")
             return f"Opened URL: {url}"
 
 
@@ -289,7 +325,6 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         messages = [{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.system_prompt}]}]
         # Get the last memory step
         last_step = self.memory.steps[-1] if self.memory.steps else None
-
         for memory_step in self.memory.steps:
             if hasattr(memory_step, "task") and memory_step.task:
                 # Add task message if it exists
@@ -359,6 +394,8 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
     
     def take_snapshot_callback(self, memory_step: ActionStep, agent=None) -> None:
         """Callback that takes a screenshot + memory snapshot after a step completes"""
+        write_to_console_log(self.log_path, "Analyzing screen content...")
+
         current_step = memory_step.step_number
         print(f"Taking screenshot for step {current_step}")
         # Check if desktop is still running
@@ -407,105 +444,6 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             print("E2B sandbox terminated")
 
 
-
-# class QwenVLAPIModel(Model):
-#     """Model wrapper for Qwen2.5VL API"""
-    
-#     def __init__(
-#         self, 
-#         model_path: str = "Qwen/Qwen2.5-VL-72B-Instruct", 
-#         provider: str = "hyperbolic"
-#     ):
-#         super().__init__()
-#         self.model_path = model_path
-#         self.model_id = model_path
-#         self.provider = provider
-        
-#         self.client = InferenceClient(
-#             provider=self.provider,
-#         )
-        
-#     def __call__(
-#         self, 
-#         messages: List[Dict[str, Any]], 
-#         stop_sequences: Optional[List[str]] = None, 
-#         **kwargs
-#     ) -> ChatMessage:
-#         """Convert a list of messages to an API request and return the response"""
-#         # # Count images in messages - debug
-#         # image_count = 0
-#         # for msg in messages:
-#         #     if isinstance(msg.get("content"), list):
-#         #         for item in msg["content"]:
-#         #             if isinstance(item, dict) and item.get("type") == "image":
-#         #                 image_count += 1
-        
-#         # print(f"QwenVLAPIModel received {len(messages)} messages with {image_count} images")
-        
-#         # Format the messages for the API
-
-#         formatted_messages = []
-        
-#         for msg in messages:
-#             role = msg["role"]
-#             if isinstance(msg["content"], list):
-#                 content = []
-#                 for item in msg["content"]:
-#                     if item["type"] == "text":
-#                         content.append({"type": "text", "text": item["text"]})
-#                     elif item["type"] == "image":
-#                         # Handle image path or direct image object
-#                         if isinstance(item["image"], str):
-#                             # Image is a path
-#                             with open(item["image"], "rb") as image_file:
-#                                 base64_image = base64.b64encode(image_file.read()).decode("utf-8")
-#                         else:
-#                             # Image is a PIL image or similar object
-#                             img_byte_arr = io.BytesIO()
-#                             item["image"].save(img_byte_arr, format="PNG")
-#                             base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
-                        
-#                         content.append({
-#                             "type": "image_url",
-#                             "image_url": {
-#                                 "url": f"data:image/png;base64,{base64_image}"
-#                             }
-#                         })
-#             else:
-#                 content = [{"type": "text", "text": msg["content"]}]
-                
-#             formatted_messages.append({"role": role, "content": content})
-        
-#         # Make the API request
-#         completion = self.client.chat.completions.create(
-#             model=self.model_path, 
-#             messages=formatted_messages, 
-#             max_tokens=kwargs.get("max_new_tokens", 512),
-#             temperature=kwargs.get("temperature", 0.7),
-#             top_p=kwargs.get("top_p", 0.9),
-#         )
-        
-#         # Extract the response text
-#         output_text = completion.choices[0].message.content
-        
-#         return ChatMessage(role=MessageRole.ASSISTANT, content=output_text)
-    
-#     def to_dict(self) -> Dict[str, Any]:
-#         """Convert the model to a dictionary"""
-#         return {
-#             "class": self.__class__.__name__,
-#             "model_path": self.model_path,
-#             "provider": self.provider,
-#             # We don't save the API key for security reasons
-#         }
-    
-#     @classmethod
-#     def from_dict(cls, data: Dict[str, Any]) -> "QwenVLAPIModel":
-#         """Create a model from a dictionary"""
-#         return cls(
-#             model_path=data.get("model_path", "Qwen/Qwen2.5-VL-72B-Instruct"),
-#             provider=data.get("provider", "hyperbolic"),
-#         )
 class QwenVLAPIModel(Model):
     """Model wrapper for Qwen2.5VL API with fallback mechanism"""
     
