@@ -423,19 +423,9 @@ def update_terminal_from_session(session_hash):
     log_path = get_log_file_path(session_hash)
     return read_log_content(log_path)
 
-    
-def run_agent_task(task_input, session_hash, request: gr.Request):
-    interaction_id = generate_interaction_id(request)
-    desktop = get_or_create_sandbox(session_hash)
-    
-    # Create data directory for this session
-    data_dir = os.path.join(TMP_DIR, interaction_id)
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-    
-    log_file = get_log_file_path(session_hash)
-    # Create the agent
-    agent = E2BVisionAgent(
+
+def create_agent():
+    return E2BVisionAgent(
         model=model,
         data_dir=data_dir,
         desktop=desktop,
@@ -444,38 +434,60 @@ def run_agent_task(task_input, session_hash, request: gr.Request):
         planning_interval=5,
         log_file = log_file
     )
-    
-    # Construct the full task with instructions
-    full_task = task_input + dedent(f"""
-        The desktop has a resolution of {WIDTH}x{HEIGHT}, take it into account to decide clicking coordinates.
-        When clicking an element, always make sure to click THE MIDDLE of that element! Else you risk to miss it.
 
-        Always analyze the latest screenshot carefully before performing actions. Make sure to:
-        1. Look at elements on the screen to determine what to click or interact with
-        2. Use precise coordinates for mouse movements and clicks
-        3. Wait for page loads or animations to complete using the wait() tool
-        4. Sometimes you may have missed a click, so never assume that you're on the right page, always make sure that your previous action worked In the screenshot you can see if the mouse is out of the clickable area. Pay special attention to this.
+class EnrichedGradioUI(GradioUI):
+    def interact_with_agent(self, task_input, messages, session_state, session_hash):
+        import gradio as gr
 
-        When you receive a task, break it down into step-by-step actions. On each step, look at the current screenshot to validate if previous steps worked and decide the next action.
-        We can only execute one action at a time. On each step, answer only a python blob with the action to perform
-    """)
+        interaction_id = generate_interaction_id(request)
+        desktop = get_or_create_sandbox(session_hash)
+        
+        # Create data directory for this session
+        data_dir = os.path.join(TMP_DIR, interaction_id)
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+        
+        log_file = get_log_file_path(session_hash)
+        
+        # Construct the full task with instructions
+        full_task = task_input + dedent(f"""
+            The desktop has a resolution of {WIDTH}x{HEIGHT}, take it into account to decide clicking coordinates.
+            When clicking an element, always make sure to click THE MIDDLE of that element! Else you risk to miss it.
     
-    try:
-        # Run the agent
-        result = agent.run(full_task)
-        save_final_status(data_dir, "completed", details = agent.memory.get_succinct_steps())
-        return f"Task completed: {result}", gr.update(visible=True), gr.update(visible=False)
+            Always analyze the latest screenshot carefully before performing actions. Make sure to:
+            1. Look at elements on the screen to determine what to click or interact with
+            2. Use precise coordinates for mouse movements and clicks
+            3. Wait for page loads or animations to complete using the wait() tool
+            4. Sometimes you may have missed a click, so never assume that you're on the right page, always make sure that your previous action worked In the screenshot you can see if the mouse is out of the clickable area. Pay special attention to this.
     
-    except Exception as e:
-        error_message = f"Error running agent: {str(e)} Details {traceback.format_exc()}"
-        save_final_status(data_dir, "failed", details = error_message)
-        print(error_message)
-        error_result = "Error running agent - Model inference endpoints not ready. Try again later." if 'Both endpoints failed' in error_message else "Error running agent"
-        return error_result, gr.update(visible=True), gr.update(visible=False)
-    
-    finally:
-        upload_to_hf_and_remove(data_dir)
+            When you receive a task, break it down into step-by-step actions. On each step, look at the current screenshot to validate if previous steps worked and decide the next action.
+            We can only execute one action at a time. On each step, answer only a python blob with the action to perform
+        """)
 
+        # Get the agent type from the template agent
+        if "agent" not in session_state:
+            session_state["agent"] = create_agent()
+
+        try:
+            messages.append(gr.ChatMessage(role="user", content=prompt))
+            yield messages
+
+            for msg in stream_to_gradio(session_state["agent"], task=full_task, reset_agent_memory=False):
+                messages.append(msg)
+                yield messages
+
+            yield messages
+            save_final_status(data_dir, "completed", details = agent.memory.get_succinct_steps())
+        except Exception as e:
+            error_message=f"Error in interaction: {str(e)}"
+            messages.append(gr.ChatMessage(role="assistant", content=error_message))
+            yield messages
+            save_final_status(data_dir, "failed", details = error_message)
+            error_result = "Error running agent - Model inference endpoints not ready. Try again later." if 'Both endpoints failed' in error_message else "Error running agent"
+            yield gr.ChatMessage(role="assistant", content=error_result)
+
+        finally:
+            upload_to_hf_and_remove(data_dir)
 
 
 # Create a Gradio app with Blocks
@@ -508,18 +520,23 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
             examples_per_page=4
         )
     
-    with gr.Group(visible=True) as terminal_container:
-        terminal = gr.Textbox(
-            value="Initializing...",
-            label='Console',
-            lines=5,
-            max_lines=10,
-            interactive=False
-        )
+    # with gr.Group(visible=True) as terminal_container:
+
+        #terminal = gr.Textbox(
+        #    value="Initializing...",
+        #    label='Console',
+        #    lines=5,
+        #    max_lines=10,
+        #    interactive=False
+        #)
+
         
         # Hidden refresh button
-        refresh_btn = gr.Button("Refresh", visible=False, elem_id="refresh-log-btn")
-    
+    refresh_btn = gr.Button("Refresh", visible=False, elem_id="refresh-log-btn")
+
+    session_state = gr.State({})
+    stored_messages = gr.State([])
+
     with gr.Group(visible=False) as results_container:
         results_output = gr.Textbox(
             label="Results",
@@ -528,7 +545,18 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
         )
 
     update_btn = gr.Button("Let's go!")
-    
+
+    chatbot = gr.Chatbot(
+        label="Agent",
+        type="messages",
+        avatar_images=(
+            None,
+            "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/smolagents/mascot_smol.png",
+        ),
+        resizeable=True,
+        scale=1,
+    )
+    agent_ui = GradioUI(session_state["agent"])
 
     def read_log_content(log_file, tail=4):
         """Read the contents of a log file for a specific session"""
@@ -572,17 +600,20 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
         fn=clear_and_set_view_only,
         inputs=[task_input], 
         outputs=[results_output, html_output, results_container, terminal_container]
-    )
-
-    # 2. Then run the agent task and update visibility
-    task_result = view_only_event.then(
-        fn=run_agent_task,
-        inputs=[task_input,session_hash_state],
-        outputs=[results_output, results_container, terminal_container]
-    )
-
-    # 3. Set interactive mode when task completes successfully
-    task_result.then(
+    ).then(            
+        agent_ui.log_user_message,
+        [task_input, task_input],
+        [stored_messages, text_input, submit_btn],
+    ).then(agent_ui.interact_with_agent, [stored_messages, chatbot, session_state, session_hash_state], [chatbot]).then(
+        lambda: (
+            gr.Textbox(
+                interactive=True, placeholder="Enter your prompt here and press Shift+Enter or the button"
+            ),
+            gr.Button(interactive=True),
+        ),
+        None,
+        [text_input, submit_btn],
+    ).then(
         fn=check_and_set_interactive,
         inputs=[results_output],
         outputs=html_output
