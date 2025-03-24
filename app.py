@@ -390,7 +390,7 @@ def generate_interaction_id(request):
 
 def save_final_status(folder, status, details = None):
     a = open(os.path.join(folder,"status.json"),"w")
-    a.write(json.dumps({"status":status,"details":str(details)}))
+    a.write(json.dumps({"status":status,"details":details}))
     a.close()
 
 def get_log_file_path(session_hash):
@@ -463,7 +463,7 @@ def run_agent_task(task_input, session_hash, request: gr.Request):
     try:
         # Run the agent
         result = agent.run(full_task)
-        save_final_status(data_dir, "completed", details = result)
+        save_final_status(data_dir, "completed", details = agent.memory.get_succinct_steps())
         return f"Task completed: {result}", gr.update(visible=True), gr.update(visible=False)
     
     except Exception as e:
