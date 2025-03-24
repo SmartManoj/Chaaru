@@ -6,6 +6,7 @@ import traceback
 from e2b_desktop import Sandbox
 from huggingface_hub import upload_folder, login
 from smolagents.monitoring import LogLevel
+from smolagents.gradio_ui import GradioUI, stream_to_gradio
 from textwrap import dedent
 import time
 from threading import Timer
@@ -424,7 +425,7 @@ def update_terminal_from_session(session_hash):
     return read_log_content(log_path)
 
 
-def create_agent():
+def create_agent(data_dir, desktop, log_file):
     return E2BVisionAgent(
         model=model,
         data_dir=data_dir,
@@ -436,7 +437,7 @@ def create_agent():
     )
 
 class EnrichedGradioUI(GradioUI):
-    def interact_with_agent(self, task_input, messages, session_state, session_hash):
+    def interact_with_agent(self, task_input, messages, session_state, session_hash, request: gr.Request):
         import gradio as gr
 
         interaction_id = generate_interaction_id(request)
@@ -446,8 +447,11 @@ class EnrichedGradioUI(GradioUI):
         data_dir = os.path.join(TMP_DIR, interaction_id)
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
-        
+
         log_file = get_log_file_path(session_hash)
+        
+        if "agent" not in session_state:
+            session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop, log_file=log_file)
         
         # Construct the full task with instructions
         full_task = task_input + dedent(f"""
@@ -464,12 +468,8 @@ class EnrichedGradioUI(GradioUI):
             We can only execute one action at a time. On each step, answer only a python blob with the action to perform
         """)
 
-        # Get the agent type from the template agent
-        if "agent" not in session_state:
-            session_state["agent"] = create_agent()
-
         try:
-            messages.append(gr.ChatMessage(role="user", content=prompt))
+            messages.append(gr.ChatMessage(role="user", content=full_task))
             yield messages
 
             for msg in stream_to_gradio(session_state["agent"], task=full_task, reset_agent_memory=False):
@@ -477,7 +477,7 @@ class EnrichedGradioUI(GradioUI):
                 yield messages
 
             yield messages
-            save_final_status(data_dir, "completed", details = agent.memory.get_succinct_steps())
+            save_final_status(data_dir, "completed", details = session_state["agent"].memory.get_succinct_steps())
         except Exception as e:
             error_message=f"Error in interaction: {str(e)}"
             messages.append(gr.ChatMessage(role="assistant", content=error_message))
@@ -556,7 +556,8 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
         resizeable=True,
         scale=1,
     )
-    agent_ui = GradioUI(session_state["agent"])
+    from smolagents import CodeAgent
+    agent_ui = EnrichedGradioUI(CodeAgent(tools=[], model=None, name="ok", description="ok"))
 
     def read_log_content(log_file, tail=4):
         """Read the contents of a log file for a specific session"""
@@ -576,7 +577,7 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     # Function to set view-only mode
     def clear_and_set_view_only(task_input, request: gr.Request):
         # First clear the results, then set view-only mode
-        return "", update_html(False, request), gr.update(visible=False), gr.update(visible=True)
+        return "", update_html(False, request), gr.update(visible=False)
 
     # Function to set interactive mode
     def set_interactive_mode(request: gr.Request):
@@ -592,18 +593,18 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
             # Return the current HTML to avoid changing the display
             # This will keep the BSOD visible
             return gr.update()
-
+    submit_btn = gr.Button("dont click")
 
     # Chain the events
     # 1. Set view-only mode when button is clicked and reset visibility
     view_only_event = update_btn.click(
         fn=clear_and_set_view_only,
         inputs=[task_input], 
-        outputs=[results_output, html_output, results_container, terminal_container]
+        outputs=[results_output, html_output, results_container]
     ).then(            
         agent_ui.log_user_message,
         [task_input, task_input],
-        [stored_messages, text_input, submit_btn],
+        [stored_messages, task_input, submit_btn],
     ).then(agent_ui.interact_with_agent, [stored_messages, chatbot, session_state, session_hash_state], [chatbot]).then(
         lambda: (
             gr.Textbox(
@@ -612,7 +613,7 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
             gr.Button(interactive=True),
         ),
         None,
-        [text_input, submit_btn],
+        [task_input, submit_btn],
     ).then(
         fn=check_and_set_interactive,
         inputs=[results_output],
@@ -626,11 +627,7 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     )
     
     # Connect refresh button to update terminal
-    refresh_btn.click(
-        fn=update_terminal_from_session,
-        inputs=[session_hash_state],
-        outputs=[terminal]
-    )
+
 
 
 # Launch the app
