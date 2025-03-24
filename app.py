@@ -437,6 +437,13 @@ def create_agent(data_dir, desktop, log_file):
     )
 
 class EnrichedGradioUI(GradioUI):
+    def log_user_message(self, text_input):
+        import gradio as gr
+
+        return (
+            text_input,
+            gr.Button(interactive=False),
+        )
     def interact_with_agent(self, task_input, messages, session_state, session_hash, request: gr.Request):
         import gradio as gr
 
@@ -547,7 +554,7 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     update_btn = gr.Button("Let's go!")
 
     chatbot = gr.Chatbot(
-        label="Agent logs",
+        label="Agent's execution logs",
         type="messages",
         avatar_images=(
             None,
@@ -593,7 +600,6 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
             # Return the current HTML to avoid changing the display
             # This will keep the BSOD visible
             return gr.update()
-    submit_btn = gr.Button("dont click")
 
     # Chain the events
     # 1. Set view-only mode when button is clicked and reset visibility
@@ -603,8 +609,8 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
         outputs=[results_output, html_output, results_container]
     ).then(            
         agent_ui.log_user_message,
-        [task_input, task_input],
-        [stored_messages, task_input, submit_btn],
+        [task_input],
+        [stored_messages, task_input],
     ).then(agent_ui.interact_with_agent, [stored_messages, chatbot, session_state, session_hash_state], [chatbot]).then(
         lambda: (
             gr.Textbox(
@@ -613,7 +619,7 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
             gr.Button(interactive=True),
         ),
         None,
-        [task_input, submit_btn],
+        [task_input],
     ).then(
         fn=check_and_set_interactive,
         inputs=[results_output],
