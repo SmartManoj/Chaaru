@@ -477,12 +477,12 @@ class EnrichedGradioUI(GradioUI):
                 yield messages
 
             yield messages
-            save_final_status(data_dir, "completed", details = session_state["agent"].memory.get_succinct_steps())
+            save_final_status(data_dir, "completed", details = str(session_state["agent"].memory.get_succinct_steps()))
         except Exception as e:
             error_message=f"Error in interaction: {str(e)}"
             messages.append(gr.ChatMessage(role="assistant", content=error_message))
             yield messages
-            save_final_status(data_dir, "failed", details = error_message)
+            save_final_status(data_dir, "failed", details = str(error_message))
             error_result = "Error running agent - Model inference endpoints not ready. Try again later." if 'Both endpoints failed' in error_message else "Error running agent"
             yield gr.ChatMessage(role="assistant", content=error_result)
 
@@ -547,7 +547,7 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     update_btn = gr.Button("Let's go!")
 
     chatbot = gr.Chatbot(
-        label="Agent",
+        label="Agent logs",
         type="messages",
         avatar_images=(
             None,
