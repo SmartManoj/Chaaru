@@ -128,7 +128,6 @@ custom_css = """
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    padding: 20px;
     box-sizing: border-box;
 }
 
@@ -141,24 +140,24 @@ custom_css = """
 }
 
 .logo-item img {
-    max-height: 80px;
-    width: auto;
+    height: 60px;
     object-fit: contain;
 }
 """
 
 header_html="""
-<h2 style="text-align: center">Personal Computer Assistant</h2>
+<h2 style="text-align: center">GUI Agent demo</h2>
+<h3 style="text-align: center"><i>Powered by:</i></h2>
 <div class="logo-container">
-    <div class="logo-item">
-    <img src="https://upload.wikimedia.org/wikipedia/en/8/85/Logo_of_Qwen.png" alt="Qwen logo">
-    </div>
-    <div class="logo-item">
+    <a class="logo-item" href="https://github.com/e2b-dev/desktop">
+    <img src="https://image.pitchbook.com/XcarTFiUTDTVBfBep3JKHtiTAob1714067332850_200x200" alt="e2b logo", style="height:100px;">
+    </a>
+    <a class="logo-item" href="https://github.com/huggingface/smolagents">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/smolagents/smolagents.png" alt="Smolagents logo">
-    </div>
-    <div class="logo-item">
-    <img src=src="https://github.com/e2b-dev/E2B/blob/main/readme-assets/logo-circle.png?raw=true" alt="e2b logo">
-    </div>
+    </a>
+    <a class="logo-item" href="https://huggingface.co/Qwen/Qwen2.5-VL-32B-Instruct">
+    <img src="https://upload.wikimedia.org/wikipedia/en/8/85/Logo_of_Qwen.png" alt="Qwen logo", style="height:48px;">
+    </a>
 </div>
 """
 sandbox_html_template = """
