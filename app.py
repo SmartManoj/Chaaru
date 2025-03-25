@@ -26,7 +26,10 @@ if not os.path.exists(TMP_DIR):
 
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
 login(token=hf_token)
-model = QwenVLAPIModel(hf_token = hf_token)
+model = QwenVLAPIModel(
+    hf_token = hf_token,
+    hf_base_url="https://s41ydkv0iyjeokyj.us-east-1.aws.endpoints.huggingface.cloud"
+)
 
 
 custom_css = """
