@@ -144,20 +144,21 @@ custom_css = """
 }
 """
 
-
-html_template = """
-    <h2 style="text-align: center">Personal Computer Assistant</h2>
-    <div class="logo-container">
-        <div class="logo-item">
-        <img src="https://upload.wikimedia.org/wikipedia/en/8/85/Logo_of_Qwen.png" alt="Qwen logo">
-        </div>
-        <div class="logo-item">
-        <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/smolagents/smolagents.png" alt="Smolagents logo">
-        </div>
-        <div class="logo-item">
-        <img src=src="https://github.com/e2b-dev/E2B/blob/main/readme-assets/logo-circle.png?raw=true" alt="e2b logo">
-        </div>
+header_html="""
+<h2 style="text-align: center">Personal Computer Assistant</h2>
+<div class="logo-container">
+    <div class="logo-item">
+    <img src="https://upload.wikimedia.org/wikipedia/en/8/85/Logo_of_Qwen.png" alt="Qwen logo">
     </div>
+    <div class="logo-item">
+    <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/smolagents/smolagents.png" alt="Smolagents logo">
+    </div>
+    <div class="logo-item">
+    <img src=src="https://github.com/e2b-dev/E2B/blob/main/readme-assets/logo-circle.png?raw=true" alt="e2b logo">
+    </div>
+</div>
+"""
+sandbox_html_template = """
     <div class="sandbox-outer-wrapper">
       <div class="sandbox-container">
           <img src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/desktop2.png" class="sandbox-background" />
@@ -408,16 +409,16 @@ def update_html(interactive_mode, request: gr.Request):
     
     creation_time = SANDBOX_METADATA[session_hash]['created_at'] if session_hash in SANDBOX_METADATA else time.time()
 
-    html_content = html_template.format(
+    sandbox_html_content = sandbox_html_template.format(
         stream_url=stream_url,
         status_class=status_class,
         status_text=status_text,
     )
 
     # Add hidden field with creation time for JavaScript to use
-    html_content += f'<div id="sandbox-creation-time" style="display:none;" data-time="{creation_time}" data-timeout="{SANDBOX_TIMEOUT}"></div>'
-    
-    return html_content
+    sandbox_html_content += f'<div id="sandbox-creation-time" style="display:none;" data-time="{creation_time}" data-timeout="{SANDBOX_TIMEOUT}"></div>'
+
+    return sandbox_html_content
 
 def generate_interaction_id(request):
     """Generate a unique ID combining session hash and timestamp"""
@@ -536,8 +537,13 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     #Storing session hash in a state variable
     session_hash_state = gr.State(None)
 
-    html_output = gr.HTML(
-        value=html_template.format(
+    header_html = gr.HTML(
+        value=header_html,
+        label="Header"
+    )
+
+    sandbox_html = gr.HTML(
+        value=sandbox_html_template.format(
             stream_url="",
             status_class="status-interactive",
             status_text="Interactive"
@@ -640,7 +646,7 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     view_only_event = update_btn.click(
         fn=clear_and_set_view_only,
         inputs=[task_input], 
-        outputs=[results_output, html_output, results_container]
+        outputs=[results_output, sandbox_html, results_container]
     ).then(            
         agent_ui.log_user_message,
         [task_input],
@@ -657,13 +663,13 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     ).then(
         fn=check_and_set_interactive,
         inputs=[results_output],
-        outputs=html_output
+        outputs=sandbox_html
     )
  
     demo.load(
         fn=initialize_session,
         inputs=[gr.Checkbox(value=True, visible=False)],
-        outputs=[html_output, session_hash_state]
+        outputs=[sandbox_html, session_hash_state]
     )
     
     # Connect refresh button to update terminal
