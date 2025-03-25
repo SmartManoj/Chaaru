@@ -44,7 +44,7 @@ custom_css = """
 
 .sandbox-container {
     position: relative;
-    width: 940px;
+    width: 935px;
     height: 770px;
     overflow: hidden;
 }
@@ -53,7 +53,7 @@ custom_css = """
     position: absolute;
     top: 0;
     left: 0;
-    width: 940px;
+    width: 935px;
     height: 770px;
 }
 
@@ -71,8 +71,8 @@ custom_css = """
 /* Status indicator light */
 .status-indicator {
     position: absolute;
-    bottom: 28.6%;
-    left: 20.1%;
+    top: 7.5%;
+    left: 67.5%;
     width: 20px;
     height: 20px;
     border-radius: 50%;
@@ -82,8 +82,8 @@ custom_css = """
 
 .status-text {
     position: absolute;
-    bottom: 28.4%;
-    left: 22.5%;
+    top: 7.1%;
+    left: 70%;
     font-size: 16px;
     font-weight: bold;
     color: black;
