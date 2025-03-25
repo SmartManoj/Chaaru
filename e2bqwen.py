@@ -605,5 +605,5 @@ class QwenVLAPIModel(Model):
         return cls(
             model_path=data.get("model_path", "Qwen/Qwen2.5-VL-72B-Instruct"),
             provider=data.get("provider", "hyperbolic"),
-            hf_base_url=data.get("hf_base_url", "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"),
+            hf_base_url=data.get("hf_base_url", "https://s41ydkv0iyjeokyj.us-east-1.aws.endpoints.huggingface.cloud"),
         )
