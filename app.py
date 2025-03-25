@@ -119,11 +119,45 @@ custom_css = """
     50% { background-color: rgba(46, 204, 113, 0.4); }  /* Green at 40% opacity */
     100% { background-color: rgba(46, 204, 113, 1); }  /* Green at full opacity */
 }
+
+.logo-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.logo-item {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 15px;
+}
+
+.logo-item img {
+    max-height: 80px;
+    width: auto;
+    object-fit: contain;
+}
 """
 
 
 html_template = """
     <h2 style="text-align: center">Personal Computer Assistant</h2>
+    <div class="logo-container">
+        <div class="logo-item">
+        <img src="https://upload.wikimedia.org/wikipedia/en/8/85/Logo_of_Qwen.png" alt="Qwen logo">
+        </div>
+        <div class="logo-item">
+        <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/smolagents/smolagents.png" alt="Smolagents logo">
+        </div>
+        <div class="logo-item">
+        <img src=src="https://github.com/e2b-dev/E2B/blob/main/readme-assets/logo-circle.png?raw=true" alt="e2b logo">
+        </div>
+    </div>
     <div class="sandbox-outer-wrapper">
       <div class="sandbox-container">
           <img src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/desktop2.png" class="sandbox-background" />
