@@ -146,7 +146,7 @@ custom_css = """
 """
 
 header_html="""
-<h2 style="text-align: center">GUI Agent demo</h2>
+<h2 style="text-align: center">GUI Agent assistant</h2>
 <h3 style="text-align: center"><i>Powered by:</i></h2>
 <div class="logo-container">
     <a class="logo-item" href="https://github.com/e2b-dev/desktop">
