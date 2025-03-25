@@ -44,9 +44,8 @@ custom_css = """
 
 .sandbox-container {
     position: relative;
-    width: 1024px;
-    height: 811px;
-    flex-shrink: 0;
+    width: 940px;
+    height: 770px;
     overflow: hidden;
 }
 
@@ -54,20 +53,19 @@ custom_css = """
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    width: 940px;
+    height: 770px;
 }
 
 .sandbox-iframe {
     position: absolute;
-    top: 7%;
-    left: 18%;
-    width: 1288px;
-    height: 968px;
+    top: 13%;
+    left: 5%;
+    width: <<WIDTH>>px;
+    height: <<HEIGHT>>px;
     border: 4px solid #444444;
     transform-origin: 0 0;
-    transform: scale(0.51);
+    transform: scale(0.65);
 }
 
 /* Status indicator light */
@@ -143,7 +141,7 @@ custom_css = """
     height: 60px;
     object-fit: contain;
 }
-"""
+""".replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
 
 header_html="""
 <h2 style="text-align: center">GUI Agent assistant</h2>
@@ -163,7 +161,7 @@ header_html="""
 sandbox_html_template = """
     <div class="sandbox-outer-wrapper">
       <div class="sandbox-container">
-          <img src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/desktop2.png" class="sandbox-background" />
+          <img src="https://huggingface.co/datasets/m-ric/images/resolve/main/HUD_1024x768.png" class="sandbox-background" />
           <div class="status-text">{status_text}</div>
           <div class="status-indicator {status_class}"></div>
           <iframe id="sandbox-iframe"
@@ -175,11 +173,11 @@ sandbox_html_template = """
           <img id="bsod-image"
               src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/blue_screen_of_death.gif"
               class="bsod-image"
-              style="display: none; position: absolute; top: 7%; left: 18%; width: 657px; height: 494px; border: 4px solid #444444;"
+              style="display: none; position: absolute; top: 13%; left: 5%; width: <<WIDTH>>px; height: <<HEIGHT>>px; border: 4px solid #444444;"
           />
       </div>
     </div>
-"""
+""".replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
 
 custom_js = """
 function() {
