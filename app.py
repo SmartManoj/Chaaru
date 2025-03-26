@@ -404,7 +404,7 @@ def update_html(interactive_mode, request: gr.Request):
     
     # Set status indicator class and text
     status_class = "status-interactive" if interactive_mode else "status-view-only"
-    status_text = "Interactive" if interactive_mode else "View Only"
+    status_text = "Interactive" if interactive_mode else "Agent running: View only"
     
     creation_time = SANDBOX_METADATA[session_hash]['created_at'] if session_hash in SANDBOX_METADATA else time.time()
 
