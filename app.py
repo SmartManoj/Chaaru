@@ -478,7 +478,7 @@ class EnrichedGradioUI(GradioUI):
             text_input,
             gr.Button(interactive=False),
         )
-    def interact_with_agent(self, task_input, messages, session_state, session_hash, request: gr.Request):
+    def interact_with_agent(self, task_input, stored_messages, session_state, session_hash, request: gr.Request):
         import gradio as gr
 
         interaction_id = generate_interaction_id(request)
@@ -510,22 +510,20 @@ class EnrichedGradioUI(GradioUI):
         """)
 
         try:
-            messages.append(gr.ChatMessage(role="user", content=task_input))
-            yield messages
+            stored_messages.append(gr.ChatMessage(role="user", content=task_input))
+            yield stored_messages
 
             for msg in stream_to_gradio(session_state["agent"], task=full_task, reset_agent_memory=False):
-                messages.append(msg)
-                yield messages
+                stored_messages.append(msg)
+                yield stored_messages
 
-            yield messages
+            yield stored_messages
             save_final_status(data_dir, "completed", details = str(session_state["agent"].memory.get_succinct_steps()))
         except Exception as e:
             error_message=f"Error in interaction: {str(e)}"
-            messages.append(gr.ChatMessage(role="assistant", content=error_message))
-            yield messages
+            stored_messages.append(gr.ChatMessage(role="assistant", content=error_message))
+            yield stored_messages
             save_final_status(data_dir, "failed", details = str(error_message))
-            error_result = "Error running agent - Model inference endpoints not ready. Try again later." if 'Both endpoints failed' in error_message else "Error running agent"
-            yield gr.ChatMessage(role="assistant", content=error_result)
 
         finally:
             upload_to_hf_and_remove(data_dir)
@@ -577,20 +575,9 @@ with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
                 )
 
             update_btn = gr.Button("Let's go!", variant="primary")
-    
-    # with gr.Group(visible=True) as terminal_container:
+            cancel_btn = gr.Button("Interrupt running agent")
 
-        #terminal = gr.Textbox(
-        #    value="Initializing...",
-        #    label='Console',
-        #    lines=5,
-        #    max_lines=10,
-        #    interactive=False
-        #)
-
-        
-
-    chatbot = gr.Chatbot(
+    chatbot_display = gr.Chatbot(
         label="Agent's execution logs",
         type="messages",
         avatar_images=(
@@ -621,26 +608,15 @@ with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
                 return "".join(lines[-tail:] if len(lines) > tail else lines)
         except Exception as e:
             return f"Guru meditation: {str(e)}"
-        
+
     # Function to set view-only mode
     def clear_and_set_view_only(task_input, request: gr.Request):
         # First clear the results, then set view-only mode
         return "", update_html(False, request), gr.update(visible=False)
 
-    # Function to set interactive mode
-    def set_interactive_mode(request: gr.Request):
+    def set_interactive(request: gr.Request):
         return update_html(True, request)
-    
 
-    # Function to check result and conditionally set interactive mode
-    def check_and_set_interactive(result, request: gr.Request):
-        if result and not result.startswith("Error running agent"):
-            # Only set interactive mode if no error
-            return update_html(True, request)
-        else:
-            # Return the current HTML to avoid changing the display
-            # This will keep the BSOD visible
-            return gr.update()
 
     # Chain the events
     # 1. Set view-only mode when button is clicked and reset visibility
@@ -648,33 +624,19 @@ with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
         fn=clear_and_set_view_only,
         inputs=[task_input], 
         outputs=[results_output, sandbox_html, results_container]
-    ).then(            
-        agent_ui.log_user_message,
-        [task_input],
-        [stored_messages, task_input],
-    ).then(agent_ui.interact_with_agent, [stored_messages, chatbot, session_state, session_hash_state], [chatbot]).then(
-        lambda: (
-            gr.Textbox(
-                interactive=True, placeholder="Enter your prompt here and press Shift+Enter or the button"
-            ),
-            gr.Button(interactive=True),
-        ),
-        None,
-        [task_input],
-    ).then(
-        fn=check_and_set_interactive,
-        inputs=[results_output],
+    )
+    view_only_event.then(agent_ui.interact_with_agent, [task_input, stored_messages, session_state, session_hash_state], [chatbot_display]).then(
+        fn=set_interactive,
+        inputs=[],
         outputs=sandbox_html
     )
- 
+    cancel_btn.click(fn=(lambda x: x), cancels=[view_only_event])
+
     demo.load(
         fn=initialize_session,
         inputs=[gr.Checkbox(value=True, visible=False)],
         outputs=[sandbox_html, session_hash_state]
     )
-    
-    # Connect refresh button to update terminal
-
 
 
 # Launch the app

@@ -330,6 +330,7 @@ class E2BVisionAgent(CodeAgent):
     
     def take_snapshot_callback(self, memory_step: ActionStep, agent=None) -> None:
         """Callback that takes a screenshot + memory snapshot after a step completes"""
+        print("FYI, here is the system prompt:", agent.system_prompt)
         write_to_console_log(self.log_path, "Analyzing screen content...")
 
         current_step = memory_step.step_number
@@ -388,7 +389,7 @@ class QwenVLAPIModel(Model):
         model_path: str = "Qwen/Qwen2.5-VL-72B-Instruct",
         provider: str = "hyperbolic",
         hf_token: str = None,
-        hf_base_url: str = "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+        hf_base_url: str = "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud"
     ):
         super().__init__()
         self.model_path = model_path
@@ -401,13 +402,15 @@ class QwenVLAPIModel(Model):
         self.hyperbolic_client = InferenceClient(
             provider=self.provider,
         )
+
+        assert not self.hf_base_url.endswith("/v1/"), "Enter your base url without '/v1/' suffix."
         
         # Initialize HF OpenAI-compatible client if token is provided
         self.hf_client = None
         if hf_token:
             from openai import OpenAI
             self.hf_client = OpenAI(
-                base_url=self.hf_base_url,
+                base_url=self.hf_base_url + "/v1/",
                 api_key=self.hf_token
             )
         
