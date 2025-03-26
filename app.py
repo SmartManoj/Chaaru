@@ -558,7 +558,8 @@ with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
                 examples=[
                     "Check the commuting time between Bern and Zurich",
                     "Write 'Hello World' in a text editor",
-                    "Search a flight Paris - Berlin for tomorrow"
+                    "Search a flight Paris - Berlin for tomorrow",
+                    "Could you head to Fontainebleau (France) in Google Maps then drag and drop to position the castle of Fontainebleau exactly in the center?",
                 ],
                 inputs = task_input,
                 label= "Example Tasks",

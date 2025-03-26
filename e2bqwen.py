@@ -39,77 +39,15 @@ def write_to_console_log(log_file_path, message):
         print(f"Error writing to log file: {str(e)}")
         return False
     
-class E2BVisionAgent(CodeAgent):
-    """Agent for e2b desktop automation with Qwen2.5VL vision capabilities"""
-    def __init__(
-        self,
-        model: HfApiModel,
-        data_dir: str,
-        desktop: Sandbox,
-        tools: List[tool] = None,
-        max_steps: int = 200,
-        verbosity_level: LogLevel = 4,
-        planning_interval: int = 15,
-        log_file = None,
-        **kwargs
-    ):
-        self.desktop = desktop
-        self.data_dir = data_dir
-        self.log_path = log_file
-        write_to_console_log(self.log_path, "Booting agent...")
-        self.planning_interval = planning_interval
-        # Initialize Desktop
-        self.width, self.height = self.desktop.get_screen_size()
-        print(f"Screen size: {self.width}x{self.height}")
-        write_to_console_log(self.log_path, f"Desktop resolution detected: {self.width}x{self.height}")
+E2B_SYSTEM_PROMPT_TEMPLATE = """You are a desktop automation assistant that can control a remote desktop environment.
+On top of performing computations in the Python code snippets that you create, you only have access to these tools to interact with the desktop, no additional ones:
+{%- for tool in tools.values() %}
+- {{ tool.name }}: {{ tool.description }}
+    Takes inputs: {{tool.inputs}}
+    Returns an output of type: {{tool.output_type}}
+{%- endfor %}
 
-
-
-        # Set up temp directory
-        os.makedirs(self.data_dir, exist_ok=True)
-        print(f"Screenshots and steps will be saved to: {self.data_dir}")
-        print(f"Verbosity level set to {verbosity_level}")
-
-
-        # Initialize base agent
-        super().__init__(
-            tools=tools or [],
-            model=model,
-            max_steps=max_steps,
-            verbosity_level=verbosity_level,
-            planning_interval = self.planning_interval,
-            **kwargs
-        )
-
-
-        # Add screen info to state
-        self.state["screen_width"] = self.width
-        self.state["screen_height"] = self.height
-
-
-        # Add default tools
-        self._setup_desktop_tools()
-        write_to_console_log(self.log_path, "Setting up agent tools...")
-        self.step_callbacks.append(self.take_snapshot_callback)
-        write_to_console_log(self.log_path, "Studying an action plan... that will take a bit.")
-
-
-    def initialize_system_prompt(self):
-        return """You are a desktop automation assistant that can control a remote desktop environment.
-You only have access to the following tools to interact with the desktop, no additional ones:
-
-- click(x, y): Performs a left-click at the specified coordinates
-- right_click(x, y): Performs a right-click at the specified coordinates
-- double_click(x, y): Performs a double-click at the specified coordinates
-- move_mouse(x, y): Moves the mouse cursor to the specified coordinates
-- type_text(text): Types the specified text at the current cursor position
-- press_key(key): Presses a keyboard key (e.g., "Return", "tab", "ctrl+c")
-- scroll(direction, amount): Scrolls a website in a browser or a document (direction can be "up" or "down", a common amount is 1 or 2 scroll("down",1) ). DO NOT use scroll to move through linux desktop menus.
-- wait(seconds): Waits for the specified number of seconds. Very useful in case the prior order is still executing (for example starting very heavy applications like browsers or office apps)
-- open_url(url): Directly opens a browser with the specified url, saves time compared to clicking in a browser and going through the initial setup wizard.
-- final_answer("YOUR FINAL ANSWER TEXT"): Announces that the task requested is completed and provides a final text
-
-The desktop has a resolution of {resolution_x}x{resolution_y}.
+The desktop has a resolution of <<resolution_x>>x<<resolution_y>>.
 
 IMPORTANT:
 - Remember the tools that you have as those can save you time, for example open_url to enter a website rather than searching for the browser in the OS.
@@ -168,7 +106,60 @@ Execute one action at a time
 Verify the result before proceeding to the next step
 Use click to move through menus on the desktop and scroll for web and specific applications.
 REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
-""".format(resolution_x=self.width, resolution_y=self.height)
+"""
+
+class E2BVisionAgent(CodeAgent):
+    """Agent for e2b desktop automation with Qwen2.5VL vision capabilities"""
+    def __init__(
+        self,
+        model: HfApiModel,
+        data_dir: str,
+        desktop: Sandbox,
+        tools: List[tool] = None,
+        max_steps: int = 200,
+        verbosity_level: LogLevel = 4,
+        planning_interval: int = 15,
+        log_file = None,
+        **kwargs
+    ):
+        self.desktop = desktop
+        self.data_dir = data_dir
+        self.log_path = log_file
+        write_to_console_log(self.log_path, "Booting agent...")
+        self.planning_interval = planning_interval
+        # Initialize Desktop
+        self.width, self.height = self.desktop.get_screen_size()
+        print(f"Screen size: {self.width}x{self.height}")
+        write_to_console_log(self.log_path, f"Desktop resolution detected: {self.width}x{self.height}")
+
+
+        # Set up temp directory
+        os.makedirs(self.data_dir, exist_ok=True)
+        print(f"Screenshots and steps will be saved to: {self.data_dir}")
+        print(f"Verbosity level set to {verbosity_level}")
+
+        # Initialize base agent
+        super().__init__(
+            tools=tools or [],
+            model=model,
+            max_steps=max_steps,
+            verbosity_level=verbosity_level,
+            planning_interval = self.planning_interval,
+            **kwargs
+        )
+        self.prompt_templates["system_prompt"] = E2B_SYSTEM_PROMPT_TEMPLATE.replace("<<resolution_x>>", str(self.width)).replace("<<resolution_y>>", str(self.height))
+
+
+        # Add screen info to state
+        self.state["screen_width"] = self.width
+        self.state["screen_height"] = self.height
+
+
+        # Add default tools
+        self._setup_desktop_tools()
+        write_to_console_log(self.log_path, "Setting up agent tools...")
+        self.step_callbacks.append(self.take_snapshot_callback)
+        write_to_console_log(self.log_path, "Studying an action plan... that will take a bit.")
 
     def _setup_desktop_tools(self):
         """Register all desktop tools"""
@@ -226,7 +217,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         @tool
         def type_text(text: str, delay_in_ms: int = 75) -> str:
             """
-            Types the specified text at the current cursor position
+            Types the specified text at the current cursor position.
             Args:
                 text: The text to type
                 delay_in_ms: Delay between keystrokes in milliseconds
@@ -238,7 +229,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         @tool
         def press_key(key: str) -> str:
             """
-            Presses a keyboard key
+            Presses a keyboard key (e.g., "Return", "tab", "ctrl+c")
             Args:
                 key: The key to press (e.g., "Return", "tab", "ctrl+c")
             """
@@ -259,9 +250,24 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             return "Went back one page"
 
         @tool
+        def drag_and_drop(x1: int, y1: int, x2: int, y2: int) -> str:
+            """
+            Clicks [x1, y1], drags mouse to [x2, y2], then release click.
+            Args:
+                x1: origin x coordinate
+                y1: origin y coordinate
+                x2: end x coordinate
+                y2: end y coordinate
+            """
+            self.desktop.drag([x1, y1], [x2, y2])
+            message = f"Dragged and dropped from [{x1}, {y1}] to [{x2}, {y2}]"
+            write_to_console_log(self.log_path, message)
+            return message
+
+        @tool
         def scroll(direction: str = "down", amount: int = 1) -> str:
             """
-            Scrolls the page
+            Uses scroll button: this could scroll the page or zoom, depending on the app. DO NOT use scroll to move through linux desktop menus.
             Args:
                 direction: The direction to scroll ("up" or "down"), defaults to "down"
                 amount: The amount to scroll. A good amount is 1 or 2.
@@ -273,7 +279,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         @tool
         def wait(seconds: float) -> str:
             """
-            Waits for the specified number of seconds
+            Waits for the specified number of seconds. Very useful in case the prior order is still executing (for example starting very heavy applications like browsers or office apps)
             Args:
                 seconds: Number of seconds to wait
             """
@@ -284,7 +290,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         @tool
         def open_url(url: str) -> str:
             """
-            Opens the specified URL in the default browser
+            Directly opens a browser with the specified url, saves time compared to clicking in a browser and going through the initial setup wizard.
             Args:
                 url: The URL to open
             """
@@ -310,6 +316,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         self.tools["wait"] = wait
         self.tools["open_url"] = open_url
         self.tools["go_back"] = go_back
+        self.tools["drag_and_drop"] = drag_and_drop
 
 
     def store_metadata_to_file(self, agent) -> None:
