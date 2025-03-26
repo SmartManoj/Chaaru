@@ -35,41 +35,34 @@ model = QwenVLAPIModel(
 
 
 custom_css = """
-/* Your existing CSS */
-.sandbox-outer-wrapper {
-    display: flex;
-    justify-content: center;
-    width: 100%;
-    padding: 20px 0;
-    overflow: hidden;
-}
-
 .sandbox-container {
     position: relative;
-    width: 935px;
-    height: 770px;
+    width: 910px;
+    height: 713px;
     overflow: hidden;
+    margin: auto;
 }
 
 .sandbox-background {
     position: absolute;
     top: 0;
     left: 0;
-    width: 935px;
-    height: 770px;
+    width: 910px;
+    height: 713px;
 }
 
 .sandbox-iframe {
     position: absolute;
-    top: 13%;
-    left: 5%;
+    top: 8%;
+    left: 7%;
     width: <<WIDTH>>px;
     height: <<HEIGHT>>px;
     border: 4px solid #444444;
     transform-origin: 0 0;
-    transform: scale(0.65);
+    transform: scale(0.605);
 }
 
+/* Colored label for task textbox */
 .primary-color-label label span {
     font-weight: bold;
     color: var(--button-primary-border-color);
@@ -78,8 +71,8 @@ custom_css = """
 /* Status indicator light */
 .status-indicator {
     position: absolute;
-    top: 7.5%;
-    left: 67.5%;
+    bottom: 4%;
+    left: 43%;
     width: 20px;
     height: 20px;
     border-radius: 50%;
@@ -89,13 +82,14 @@ custom_css = """
 
 .status-text {
     position: absolute;
-    top: 7.1%;
-    left: 70%;
+    bottom: 3.8%;
+    left: 47%;
+    right:40%
     font-size: 16px;
     font-weight: bold;
     color: black;
     background-color: white;
-    padding: 0px 2px;
+    padding: 0 10px;
     border-radius: 3px;
     border: 2px solid black;
     text-shadow: none;
@@ -165,24 +159,22 @@ footer_html="""
 </div>
 """
 sandbox_html_template = """
-    <div class="sandbox-outer-wrapper">
-      <div class="sandbox-container">
-          <img src="https://huggingface.co/datasets/m-ric/images/resolve/main/HUD_1024x768.png" class="sandbox-background" />
-          <div class="status-text">{status_text}</div>
-          <div class="status-indicator {status_class}"></div>
-          <iframe id="sandbox-iframe"
-              src="{stream_url}" 
-              class="sandbox-iframe"
-              style="display: block;"
-              allowfullscreen>
-          </iframe>
-          <img id="bsod-image"
-              src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/blue_screen_of_death.gif"
-              class="bsod-image"
-              style="display: none; position: absolute; top: 13%; left: 5%; width: <<WIDTH>>px; height: <<HEIGHT>>px; border: 4px solid #444444;"
-          />
-      </div>
-    </div>
+<div class="sandbox-container">
+    <img src="https://huggingface.co/datasets/m-ric/images/resolve/main/HUD_leandro.png" class="sandbox-background" />
+    <div class="status-text">{status_text}</div>
+    <div class="status-indicator {status_class}"></div>
+    <iframe id="sandbox-iframe"
+        src="{stream_url}" 
+        class="sandbox-iframe"
+        style="display: block;"
+        allowfullscreen>
+    </iframe>
+    <img id="bsod-image"
+        src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/blue_screen_of_death.gif"
+        class="bsod-image"
+        style="display: none; position: absolute; top: 13%; left: 5%; width: <<WIDTH>>px; height: <<HEIGHT>>px; border: 4px solid #444444;"
+    />
+</div>
 """.replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
 
 custom_js = """
