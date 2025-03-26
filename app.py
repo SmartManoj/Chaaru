@@ -51,7 +51,7 @@ custom_css = """
     height: 713px;
 }
 
-.sandbox-iframe {
+.sandbox-iframe, .bsod-image {
     position: absolute;
     top: 8%;
     left: 7%;
@@ -59,9 +59,10 @@ custom_css = """
     height: <<HEIGHT>>px;
     border: 4px solid #444444;
     transform-origin: 0 0;
+}
+.sandbox-iframe {
     transform: scale(0.605);
 }
-
 /* Colored label for task textbox */
 .primary-color-label label span {
     font-weight: bold;
@@ -172,7 +173,7 @@ sandbox_html_template = """
     <img id="bsod-image"
         src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/blue_screen_of_death.gif"
         class="bsod-image"
-        style="display: none; position: absolute; top: 13%; left: 5%; width: <<WIDTH>>px; height: <<HEIGHT>>px; border: 4px solid #444444;"
+        style="display: none;
     />
 </div>
 """.replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
