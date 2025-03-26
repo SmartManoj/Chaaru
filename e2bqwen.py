@@ -103,7 +103,7 @@ Remember to:
 Always wait for appropriate loading times
 Use precise coordinates based on the current screenshot
 Execute one action at a time
-Verify the result before proceeding to the next step
+Verify the result before proceeding to the next step. If you repeated an action already without effect, it means that this action is useless: don't repeat it and try something else.
 Use click to move through menus on the desktop and scroll for web and specific applications.
 REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
 """

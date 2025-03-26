@@ -1,5 +1,5 @@
+git+https://github.com/huggingface/smolagents.git
 e2b_desktop
-smolagents
 Pillow
 huggingface_hub
 openai

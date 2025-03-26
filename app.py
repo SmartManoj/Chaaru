@@ -619,7 +619,6 @@ with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
 
 
     # Chain the events
-    # 1. Set view-only mode when button is clicked and reset visibility
     view_only_event = update_btn.click(
         fn=clear_and_set_view_only,
         inputs=[task_input], 
