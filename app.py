@@ -3,13 +3,15 @@ import os
 import json
 import shutil
 import traceback
-from e2b_desktop import Sandbox
-from huggingface_hub import upload_folder, login
-from smolagents.monitoring import LogLevel
-from smolagents.gradio_ui import GradioUI, stream_to_gradio
 from textwrap import dedent
 import time
 from threading import Timer
+from huggingface_hub import upload_folder, login
+from e2b_desktop import Sandbox
+
+from smolagents import CodeAgent
+from smolagents.monitoring import LogLevel
+from smolagents.gradio_ui import GradioUI, stream_to_gradio
 
 
 from e2bqwen import QwenVLAPIModel, E2BVisionAgent
@@ -143,8 +145,7 @@ custom_css = """
 }
 """.replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
 
-header_html="""
-<h2 style="text-align: center">GUI Agent assistant</h2>
+footer_html="""
 <h3 style="text-align: center"><i>Powered by:</i></h2>
 <div class="logo-container">
     <a class="logo-item" href="https://github.com/e2b-dev/desktop">
@@ -537,10 +538,7 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
     #Storing session hash in a state variable
     session_hash_state = gr.State(None)
 
-    header_html = gr.HTML(
-        value=header_html,
-        label="Header"
-    )
+    gr.Markdown("# GUI Agent assistant")
 
     sandbox_html = gr.HTML(
         value=sandbox_html_template.format(
@@ -603,7 +601,11 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
         resizeable=True,
         scale=1,
     )
-    from smolagents import CodeAgent
+
+    footer_html = gr.HTML(
+        value=footer_html,
+        label="Header"
+    )
     agent_ui = EnrichedGradioUI(CodeAgent(tools=[], model=None, name="ok", description="ok"))
 
     def read_log_content(log_file, tail=4):
