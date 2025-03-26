@@ -320,77 +320,6 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         a.write(json.dumps(output_memory))
         a.close()
 
-    def write_memory_to_messages(self, summary_mode: Optional[bool] = False) -> List[Dict[str, Any]]:
-        """Convert memory to messages for the model"""
-        messages = [{"role": MessageRole.SYSTEM, "content": [{"type": "text", "text": self.system_prompt}]}]
-        # Get the last memory step
-        last_step = self.memory.steps[-1] if self.memory.steps else None
-        for memory_step in self.memory.steps:
-            if hasattr(memory_step, "task") and memory_step.task:
-                # Add task message if it exists
-                messages.append({
-                    "role": MessageRole.USER, 
-                    "content": [{"type": "text", "text": memory_step.task}]
-                })
-                continue  # Skip to next step after adding task
-            if hasattr(memory_step, "model_output_message_plan") and memory_step.model_output_message_plan:
-                messages.append({
-                    "role": MessageRole.ASSISTANT,
-                    "content": [{"type": "text", "text": memory_step.model_output_message_plan.content, "agent_state": "plan"}]
-                })
-            # Process model output message if it exists
-            if hasattr(memory_step, "model_output") and memory_step.model_output:
-                messages.append({
-                    "role": MessageRole.ASSISTANT, 
-                    "content": [{"type": "text", "text": memory_step.model_output}]
-                })
-            
-            # Process observations and images
-            observation_content = []
-            
-            # Add screenshot image paths if present
-            if memory_step is last_step and hasattr(memory_step, "observations_images") and memory_step.observations_images:
-                self.logger.log(f"Found {len(memory_step.observations_images)} image paths in step", level=LogLevel.DEBUG)
-                for img_path in memory_step.observations_images:
-                    if isinstance(img_path, str) and os.path.exists(img_path):
-                        observation_content.append({"type": "image", "image": img_path})
-                    elif isinstance(img_path, Image.Image):
-                        screenshot_path = f"screenshot_{int(time.time() * 1000)}.png"
-                        img_path.save(screenshot_path)
-                        observation_content.append({"type": "image", "image": screenshot_path})
-                    else:
-                        self.logger.log(f"  - Skipping invalid image: {type(img_path)}", level=LogLevel.ERROR)
-            
-            # Add text observations if any
-            if hasattr(memory_step, "observations") and memory_step.observations:
-                self.logger.log(f"  - Adding text observation", level=LogLevel.DEBUG)
-                observation_content.append({"type": "text", "text": f"Observation: {memory_step.observations}"})
-            
-            # Add error if present and didn't already add observations
-            if hasattr(memory_step, "error") and memory_step.error:
-                self.logger.log(f"  - Adding error message", level=LogLevel.DEBUG)
-                observation_content.append({"type": "text", "text": f"Error: {memory_step.error}"})
-            
-            # Add user message with content if we have any
-            if observation_content:
-                self.logger.log(f"  - Adding user message with {len(observation_content)} content items", level=LogLevel.DEBUG)
-                messages.append({
-                    "role": MessageRole.USER,
-                    "content": observation_content
-                })
-        
-        # # Check for images in final message list
-        # image_count = 0
-        # for msg in messages:
-        #     if isinstance(msg.get("content"), list):
-        #         for item in msg["content"]:
-        #             if isinstance(item, dict) and item.get("type") == "image":
-        #                 image_count += 1
-        
-        # print(f"Created {len(messages)} messages with {image_count} image paths")
-
-        return messages
-
     
     def take_snapshot_callback(self, memory_step: ActionStep, agent=None) -> None:
         """Callback that takes a screenshot + memory snapshot after a step completes"""
@@ -529,7 +458,7 @@ class QwenVLAPIModel(Model):
                             img_byte_arr = io.BytesIO()
                             item["image"].save(img_byte_arr, format="PNG")
                             base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
-                        
+
                         content.append({
                             "type": "image_url",
                             "image_url": {
@@ -543,10 +472,10 @@ class QwenVLAPIModel(Model):
             formatted_messages.append({"role": role, "content": content})
         
         return formatted_messages
-    
+
     def _call_hf_endpoint(self, formatted_messages, stop_sequences=None, **kwargs):
         """Call the Hugging Face OpenAI-compatible endpoint"""
-        
+
         # Extract parameters with defaults
         max_tokens = kwargs.get("max_new_tokens", 512)
         temperature = kwargs.get("temperature", 0.7)
