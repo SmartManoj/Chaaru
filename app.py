@@ -19,7 +19,7 @@ from e2bqwen import QwenVLAPIModel, E2BVisionAgent
 E2B_API_KEY = os.getenv("E2B_API_KEY")
 SANDBOXES = {}
 SANDBOX_METADATA = {}
-SANDBOX_TIMEOUT = 300
+SANDBOX_TIMEOUT = 600
 WIDTH = 1280
 HEIGHT = 960
 TMP_DIR = './tmp/'
@@ -68,6 +68,11 @@ custom_css = """
     border: 4px solid #444444;
     transform-origin: 0 0;
     transform: scale(0.65);
+}
+
+.primary-color-label label span {
+    font-weight: bold;
+    color: var(--button-primary-border-color);
 }
 
 /* Status indicator light */
@@ -512,7 +517,7 @@ class EnrichedGradioUI(GradioUI):
         """)
 
         try:
-            messages.append(gr.ChatMessage(role="user", content=full_task))
+            messages.append(gr.ChatMessage(role="user", content=task_input))
             yield messages
 
             for msg in stream_to_gradio(session_state["agent"], task=full_task, reset_agent_memory=False):
@@ -534,36 +539,50 @@ class EnrichedGradioUI(GradioUI):
 
 
 # Create a Gradio app with Blocks
-with gr.Blocks(css=custom_css, js=custom_js) as demo:
+with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
     #Storing session hash in a state variable
     session_hash_state = gr.State(None)
 
-    gr.Markdown("# GUI Agent assistant")
+    gr.Markdown("# GUI Agent - Input your task and run your personal assistant!")
 
-    sandbox_html = gr.HTML(
-        value=sandbox_html_template.format(
-            stream_url="",
-            status_class="status-interactive",
-            status_text="Interactive"
-        ),
-        label="Output"
-    )
     with gr.Row():
-        task_input = gr.Textbox(
-            value="Find picture of cute puppies",
-            label="Enter your command",
+        sandbox_html = gr.HTML(
+            value=sandbox_html_template.format(
+                stream_url="",
+                status_class="status-interactive",
+                status_text="Interactive"
+            ),
+            label="Output"
         )
+        with gr.Sidebar(position="left"):
+            task_input = gr.Textbox(
+                value="Find picture of cute puppies",
+                label="Enter your task below:",
+                elem_classes="primary-color-label"
+            )
 
-        gr.Examples(
-            examples=[
-                "Check the commuting time between Bern and Zurich",
-                "Write 'Hello World' in a text editor",
-                "Search a flight Paris - Berlin for tomorrow"
-            ],
-            inputs = task_input,
-            label= "Example Tasks",
-            examples_per_page=4
-        )
+            gr.Examples(
+                examples=[
+                    "Check the commuting time between Bern and Zurich",
+                    "Write 'Hello World' in a text editor",
+                    "Search a flight Paris - Berlin for tomorrow"
+                ],
+                inputs = task_input,
+                label= "Example Tasks",
+                examples_per_page=4
+            )
+
+            session_state = gr.State({})
+            stored_messages = gr.State([])
+
+            with gr.Group(visible=False) as results_container:
+                results_output = gr.Textbox(
+                    label="Results",
+                    interactive=False,
+                    elem_id="results-output"
+                )
+
+            update_btn = gr.Button("Let's go!", variant="primary")
     
     # with gr.Group(visible=True) as terminal_container:
 
@@ -576,20 +595,6 @@ with gr.Blocks(css=custom_css, js=custom_js) as demo:
         #)
 
         
-        # Hidden refresh button
-    refresh_btn = gr.Button("Refresh", visible=False, elem_id="refresh-log-btn")
-
-    session_state = gr.State({})
-    stored_messages = gr.State([])
-
-    with gr.Group(visible=False) as results_container:
-        results_output = gr.Textbox(
-            label="Results",
-            interactive=False,
-            elem_id="results-output"
-        )
-
-    update_btn = gr.Button("Let's go!")
 
     chatbot = gr.Chatbot(
         label="Agent's execution logs",
