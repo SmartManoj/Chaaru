@@ -143,13 +143,13 @@ footer_html="""
 <h3 style="text-align: center"><i>Powered by:</i></h2>
 <div class="logo-container">
     <a class="logo-item" href="https://github.com/e2b-dev/desktop">
-    <img src="https://image.pitchbook.com/XcarTFiUTDTVBfBep3JKHtiTAob1714067332850_200x200" alt="e2b logo">
+    <img src="https://image.pitchbook.com/XcarTFiUTDTVBfBep3JKHtiTAob1714067332850_200x200" alt="e2b logo", style="width:100px;">
     </a>
     <a class="logo-item" href="https://github.com/huggingface/smolagents">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/smolagents/smolagents.png" alt="Smolagents logo">
     </a>
     <a class="logo-item" href="https://huggingface.co/Qwen/Qwen2.5-VL-32B-Instruct">
-    <img src="https://upload.wikimedia.org/wikipedia/en/8/85/Logo_of_Qwen.png" alt="Qwen logo">
+    <img src="https://upload.wikimedia.org/wikipedia/en/8/85/Logo_of_Qwen.png" alt="Qwen logo", style="width:48px;">
     </a>
 </div>
 """
