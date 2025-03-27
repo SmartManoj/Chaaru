@@ -113,7 +113,6 @@ class E2BVisionAgent(CodeAgent):
         # Set up temp directory
         os.makedirs(self.data_dir, exist_ok=True)
         print(f"Screenshots and steps will be saved to: {self.data_dir}")
-        print(f"Verbosity level set to {verbosity_level}")
 
         # Initialize base agent
         super().__init__(
@@ -133,11 +132,9 @@ class E2BVisionAgent(CodeAgent):
 
 
         # Add default tools
-        self._setup_desktop_tools()
         self.logger.log("Setting up agent tools...")
+        self._setup_desktop_tools()
         self.step_callbacks.append(self.take_screenshot_callback)
-        self.logger.log("Studying an action plan... that will take a bit.")
-
         self.final_answer_checks = [self.store_metadata_to_file]
 
     def _setup_desktop_tools(self):
@@ -316,7 +313,6 @@ class E2BVisionAgent(CodeAgent):
         self.logger.log(self.log_path, "Analyzing screen content...")
 
         current_step = memory_step.step_number
-        print(f"Taking screenshot for step {current_step}")
 
         time.sleep(2.0)  # Let things happen on the desktop
         screenshot_bytes = self.desktop.screenshot()
@@ -325,7 +321,7 @@ class E2BVisionAgent(CodeAgent):
         # Create a filename with step number
         screenshot_path = os.path.join(self.data_dir, f"step_{current_step:03d}.png")
         image.save(screenshot_path)
-        print(f"Saved screenshot to {screenshot_path}")
+        print(f"Saved screenshot for step {current_step} to {screenshot_path}")
 
         for (
             previous_memory_step
@@ -345,10 +341,8 @@ class E2BVisionAgent(CodeAgent):
     def close(self):
         """Clean up resources"""
         if self.desktop:
-            print("Stopping e2b stream...")
+            print("Stopping e2b stream and killing sandbox...")
             self.desktop.stream.stop()
-
-            print("Killing e2b sandbox...")
             self.desktop.kill()
             print("E2B sandbox terminated")
 
@@ -460,12 +454,11 @@ class QwenVLAPIModel(Model):
 
         # Initialize HF OpenAI-compatible client if token is provided
         self.hf_client = None
-        if hf_token:
-            from openai import OpenAI
-            self.hf_client = OpenAI(
-                base_url=self.hf_base_url + "/v1/",
-                api_key=self.hf_token
-            )
+        from openai import OpenAI
+        self.hf_client = OpenAI(
+            base_url=self.hf_base_url + "/v1/",
+            api_key=self.hf_token
+        )
         
     def __call__(
         self, 
@@ -479,17 +472,16 @@ class QwenVLAPIModel(Model):
         formatted_messages = self._format_messages(messages)
         
         # First try the HF endpoint if available - THIS ALWAYS FAILS SO SKIPPING
-        # if self.hf_client:
-        #     try:
-        #         completion = self._call_hf_endpoint(
-        #             formatted_messages, 
-        #             stop_sequences, 
-        #             **kwargs
-        #         )
-        #         return ChatMessage(role=MessageRole.ASSISTANT, content=completion)
-        #     except Exception as e:
-        #         print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
-        #         # Continue to fallback
+        try:
+            completion = self._call_hf_endpoint(
+                formatted_messages, 
+                stop_sequences, 
+                **kwargs
+            )
+            return ChatMessage(role=MessageRole.ASSISTANT, content=completion)
+        except Exception as e:
+            print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
+            # Continue to fallback
         
         # Fallback to hyperbolic
         try:
