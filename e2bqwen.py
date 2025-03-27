@@ -135,8 +135,10 @@ class E2BVisionAgent(CodeAgent):
         # Add default tools
         self._setup_desktop_tools()
         self.logger.log("Setting up agent tools...")
-        self.step_callbacks.append(self.take_snapshot_callback)
+        self.step_callbacks.append(self.take_screenshot_callback)
         self.logger.log("Studying an action plan... that will take a bit.")
+
+        self.final_answer_checks = [self.store_metadata_to_file]
 
     def _setup_desktop_tools(self):
         """Register all desktop tools"""
@@ -296,55 +298,50 @@ class E2BVisionAgent(CodeAgent):
         self.tools["drag_and_drop"] = drag_and_drop
 
 
-    def store_metadata_to_file(self, agent) -> None:
+    def store_metadata_to_file(self, final_answer, memory) -> None:
         metadata_path = os.path.join(self.data_dir, "metadata.json")
         output = {}
-        output_memory  = self.write_memory_to_messages()
+        # THIS ERASES IMAGES FROM MEMORY, USE WITH CAUTION
+        for memory_step in self.memory.steps:
+            if getattr(memory_step, "observations_images", None):
+                memory_step.observations_images = None
         a = open(metadata_path,"w")
-        a.write(json.dumps(output_memory))
+        a.write(json.dumps(self.write_memory_to_messages()))
         a.close()
+        return True
 
     
-    def take_snapshot_callback(self, memory_step: ActionStep, agent=None) -> None:
+    def take_screenshot_callback(self, memory_step: ActionStep, agent=None) -> None:
         """Callback that takes a screenshot + memory snapshot after a step completes"""
         self.logger.log(self.log_path, "Analyzing screen content...")
 
         current_step = memory_step.step_number
         print(f"Taking screenshot for step {current_step}")
-        # Check if desktop is still running
-        if not self.desktop.is_running():
-            print("Desktop is no longer running. Terminating agent.")
-            self.close()
-            # Add a final observation indicating why the agent was terminated
-            memory_step.observations = "Desktop session ended. Agent terminated."
-            # Store final metadata before exiting
-            self.store_metadata_to_file(agent)
-            return  # Exit the callback without attempting to take a screenshot
+
+        time.sleep(2.0)  # Let things happen on the desktop
+        screenshot_bytes = self.desktop.screenshot()
+        image = Image.open(BytesIO(screenshot_bytes))
+
+        # Create a filename with step number
+        screenshot_path = os.path.join(self.data_dir, f"step_{current_step:03d}.png")
+        image.save(screenshot_path)
+        print(f"Saved screenshot to {screenshot_path}")
+
+        for (
+            previous_memory_step
+        ) in agent.memory.steps:  # Remove previous screenshots from logs for lean processing
+            if (
+                isinstance(previous_memory_step, ActionStep)
+                and previous_memory_step.step_number <= current_step - 2
+            ):
+                previous_memory_step.observations_images = None
+
+        # Add to the current memory step
+        memory_step.observations_images = [image.copy()]  # This takes the original image directly.
+
+        # memory_step.observations_images = [screenshot_path] # IF YOU USE THIS INSTEAD OF ABOVE, LAUNCHING A SECOND TASK BREAKS
         
-        try:
-            time.sleep(2.0) # Let things happen on the desktop
-            screenshot_bytes = self.desktop.screenshot()
-            image = Image.open(BytesIO(screenshot_bytes))
-
-            # Create a filename with step number
-            screenshot_path = os.path.join(self.data_dir, f"step_{current_step:03d}.png")
-            image.save(screenshot_path)
-            print(f"Saved screenshot to {screenshot_path}")
-
-            for previous_memory_step in agent.memory.steps:  # Remove previous screenshots from logs for lean processing
-                if isinstance(previous_memory_step, ActionStep) and previous_memory_step.step_number <= current_step - 2:
-                    previous_memory_step.observations_images = None
-
-            # Add to the current memory step
-            memory_step.observations_images = [image.copy()] # This takes the original image directly. 
-            # memory_step.observations_images = [screenshot_path] # IF YOU USE THIS INSTEAD OF ABOVE, LAUNCHING A SECOND TASK BREAKS
-
-            #Storing memory and metadata to file:
-            self.store_metadata_to_file(agent)
             
-
-        except Exception as e:
-            print(f"Error taking screenshot: {e}")
 
     def close(self):
         """Clean up resources"""
@@ -356,6 +353,87 @@ class E2BVisionAgent(CodeAgent):
             self.desktop.kill()
             print("E2B sandbox terminated")
 
+from smolagents import HfApiModel
+
+# class QwenVLAPIModel(Model):
+#     """Model wrapper for Qwen2.5VL API with fallback mechanism"""
+    
+#     def __init__(
+#         self, 
+#         model_path: str = "Qwen/Qwen2.5-VL-72B-Instruct",
+#         provider: str = "hyperbolic",
+#         hf_token: str = None,
+#         hf_base_url: str = "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud"
+#     ):
+#         super().__init__()
+#         self.model_id = model_path
+#         self.hf_base_url = hf_base_url
+#         self.dedicated_endpoint_model = HfApiModel(
+#             hf_base_url,
+#             token=hf_token
+#         )
+#         self.fallback_model = HfApiModel(
+#             model_path,
+#             provider=provider,
+#             token=hf_token,
+#         )
+        
+#     def __call__(
+#         self, 
+#         messages: List[Dict[str, Any]], 
+#         stop_sequences: Optional[List[str]] = None, 
+#         **kwargs
+#     ) -> ChatMessage:
+        
+#         try:
+#             return self.dedicated_endpoint_model(messages, stop_sequences, **kwargs)
+#         except Exception as e:
+#             print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
+                
+#         # Continue to fallback
+#         try:
+#             return self.fallback_model(messages, stop_sequences, **kwargs)
+#         except Exception as e:
+#             raise Exception(f"Both endpoints failed. Last error: {e}")
+    
+#     def _format_messages(self, messages: List[Dict[str, Any]]):
+#         """Format messages for API requests - works for both endpoints"""
+        
+#         formatted_messages = []
+        
+#         for msg in messages:
+#             role = msg["role"]
+#             content = []
+            
+#             if isinstance(msg["content"], list):
+#                 for item in msg["content"]:
+#                     if item["type"] == "text":
+#                         content.append({"type": "text", "text": item["text"]})
+#                     elif item["type"] == "image":
+#                         # Handle image path or direct image object
+#                         if isinstance(item["image"], str):
+#                             # Image is a path
+#                             with open(item["image"], "rb") as image_file:
+#                                 base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+#                         else:
+#                             # Image is a PIL image or similar object
+#                             img_byte_arr = BytesIO()
+#                             item["image"].save(img_byte_arr, format="PNG")
+#                             base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
+
+#                         content.append({
+#                             "type": "image_url",
+#                             "image_url": {
+#                                 "url": f"data:image/png;base64,{base64_image}"
+#                             }
+#                         })
+#             else:
+#                 # Plain text message
+#                 content = [{"type": "text", "text": msg["content"]}]
+            
+#             formatted_messages.append({"role": role, "content": content})
+        
+#         return formatted_messages
 
 class QwenVLAPIModel(Model):
     """Model wrapper for Qwen2.5VL API with fallback mechanism"""
@@ -401,18 +479,18 @@ class QwenVLAPIModel(Model):
         # Format messages once for both APIs
         formatted_messages = self._format_messages(messages)
         
-        # First try the HF endpoint if available
-        if self.hf_client:
-            try:
-                completion = self._call_hf_endpoint(
-                    formatted_messages, 
-                    stop_sequences, 
-                    **kwargs
-                )
-                return ChatMessage(role=MessageRole.ASSISTANT, content=completion)
-            except Exception as e:
-                print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
-                # Continue to fallback
+        # First try the HF endpoint if available - THIS ALWAYS FAILS SO SKIPPING
+        # if self.hf_client:
+        #     try:
+        #         completion = self._call_hf_endpoint(
+        #             formatted_messages, 
+        #             stop_sequences, 
+        #             **kwargs
+        #         )
+        #         return ChatMessage(role=MessageRole.ASSISTANT, content=completion)
+        #     except Exception as e:
+        #         print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
+        #         # Continue to fallback
         
         # Fallback to hyperbolic
         try:
@@ -442,7 +520,6 @@ class QwenVLAPIModel(Model):
                         else:
                             # Image is a PIL image or similar object
                             img_byte_arr = BytesIO()
-                            item["image"].save(img_byte_arr, format="PNG")
                             base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
 
                         content.append({
@@ -463,7 +540,7 @@ class QwenVLAPIModel(Model):
         """Call the Hugging Face OpenAI-compatible endpoint"""
 
         # Extract parameters with defaults
-        max_tokens = kwargs.get("max_new_tokens", 512)
+        max_tokens = kwargs.get("max_new_tokens", 1024)
         temperature = kwargs.get("temperature", 0.7)
         top_p = kwargs.get("top_p", 0.9)
         stream = kwargs.get("stream", False)
@@ -494,9 +571,10 @@ class QwenVLAPIModel(Model):
         completion = self.hyperbolic_client.chat.completions.create(
             model=self.model_path,
             messages=formatted_messages,
-            max_tokens=kwargs.get("max_new_tokens", 512),
+            max_tokens=kwargs.get("max_new_tokens", 1024),
             temperature=kwargs.get("temperature", 0.7),
             top_p=kwargs.get("top_p", 0.9),
+            stop=stop_sequences
         )
         
         # Extract the response text

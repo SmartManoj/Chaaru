@@ -387,8 +387,7 @@ def get_or_create_sandbox(session_hash):
     print(f"Creating new sandbox for session {session_hash}")
     desktop = Sandbox(api_key=E2B_API_KEY, resolution=(WIDTH, HEIGHT), dpi=96, timeout=SANDBOX_TIMEOUT)
     desktop.stream.start(require_auth=True)
-    setup_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}'
-sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
+    setup_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}' | sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
     desktop.commands.run(setup_cmd)
     
     # Store sandbox with metadata
@@ -486,6 +485,7 @@ class EnrichedGradioUI(GradioUI):
             text_input,
             gr.Button(interactive=False),
         )
+
     def interact_with_agent(self, task_input, stored_messages, session_state, session_hash, request: gr.Request):
         import gradio as gr
 
@@ -517,24 +517,24 @@ class EnrichedGradioUI(GradioUI):
             We can only execute one action at a time. On each step, answer only a python blob with the action to perform
         """)
 
-        try:
-            stored_messages.append(gr.ChatMessage(role="user", content=task_input))
+        # try:
+        stored_messages.append(gr.ChatMessage(role="user", content=task_input))
+        yield stored_messages
+
+        for msg in stream_to_gradio(session_state["agent"], task=full_task, reset_agent_memory=False):
+            stored_messages.append(msg)
             yield stored_messages
 
-            for msg in stream_to_gradio(session_state["agent"], task=full_task, reset_agent_memory=False):
-                stored_messages.append(msg)
-                yield stored_messages
+        yield stored_messages
+            # save_final_status(data_dir, "completed", details = str(session_state["agent"].memory.get_succinct_steps()))
+        # except Exception as e:
+        #     error_message=f"Error in interaction: {str(e)}"
+        #     stored_messages.append(gr.ChatMessage(role="assistant", content=error_message))
+        #     yield stored_messages
+        #     save_final_status(data_dir, "failed", details = str(error_message))
 
-            yield stored_messages
-            save_final_status(data_dir, "completed", details = str(session_state["agent"].memory.get_succinct_steps()))
-        except Exception as e:
-            error_message=f"Error in interaction: {str(e)}"
-            stored_messages.append(gr.ChatMessage(role="assistant", content=error_message))
-            yield stored_messages
-            save_final_status(data_dir, "failed", details = str(error_message))
-
-        finally:
-            upload_to_hf_and_remove(data_dir)
+        # finally:
+        #     upload_to_hf_and_remove(data_dir)
 
 theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue")
 
@@ -568,6 +568,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
                     "Write 'Hello World' in a text editor",
                     "Search a flight Paris - Berlin for tomorrow",
                     "Could you head to Fontainebleau (France) in Google Maps then drag and drop to position the castle of Fontainebleau exactly in the center?",
+                    "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background"
                 ],
                 inputs = task_input,
                 label= "Example Tasks",
