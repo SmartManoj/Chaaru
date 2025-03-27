@@ -65,7 +65,7 @@ custom_css = """
 /* Colored label for task textbox */
 .primary-color-label label span {
     font-weight: bold;
-    color: var(--button-primary-border-color);
+    color: var(--color-accent);
 }
 
 /* Status indicator light */
@@ -209,11 +209,11 @@ custom_js = """function() {
         if (iframe && bsod) {
             iframe.style.display = 'none';
             bsod.style.display = 'block';
-            
+
             // Update status indicator
             const statusIndicator = document.querySelector('.status-indicator');
             const statusTextElem = document.querySelector('.status-text');
-            
+
             if (statusIndicator) {
                 statusIndicator.className = 'status-indicator status-error';
             }
@@ -312,7 +312,7 @@ def write_to_console_log(log_file_path, message):
     
 def upload_to_hf_and_remove(folder_path):
 
-    repo_id = "open-agents/os-agent-logs"    
+    repo_id = "smolagents/computer-agent-logs"    
     try:
         folder_name = os.path.basename(os.path.normpath(folder_path))
         
@@ -536,14 +536,15 @@ class EnrichedGradioUI(GradioUI):
         finally:
             upload_to_hf_and_remove(data_dir)
 
-theme = gr.themes.Default(font=["sans-serif"], primary_hue="amber", secondary_hue="blue")
+theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue")
 
 # Create a Gradio app with Blocks
 with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as demo:
     #Storing session hash in a state variable
     session_hash_state = gr.State(None)
 
-    gr.Markdown("# GUI Agent - Input your task and run your personal assistant!")
+    gr.HTML("""<h1 style="color:var(--color-accent);">Computer Agent - Input your task and run your personal assistant!<h1>
+<h5>Input your task in the left sidebar to see our agent get to work.</h5>""")
 
     with gr.Row():
         sandbox_html = gr.HTML(
@@ -585,20 +586,23 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
 
             update_btn = gr.Button("Let's go!", variant="primary")
 
-            cyberpunk_toggle = gr.Checkbox(label="Go Cyberpunk!", value=False)
+            minimalist_toggle = gr.Checkbox(label="Minimalist mode - no frame", value=False)
 
-            def apply_theme(cyberpunk_mode: bool):
-                if cyberpunk_mode:
+            def apply_theme(minimalist_mode: bool):
+                if not minimalist_mode:
                     return """
                         <style>
                         :root {
                             --body-background-fill: black!important;
                             --body-text-color: #f59e0b!important;
                             --block-text-color: #f59e0b!important;
-                            --font: Oxanium;
+                            --color-accent: #00b8ff!important;
                         }
                         .sandbox-frame {
                             display: block!important;
+                        }
+                        .body {
+                            color: #00b8ff!important;
                         }
 
                         .sandbox-iframe, .bsod-image {
@@ -636,9 +640,9 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
 
             # Hidden HTML element to inject CSS dynamically
             theme_styles = gr.HTML(apply_theme(False), visible=False)
-            cyberpunk_toggle.change(
+            minimalist_toggle.change(
                 fn=apply_theme,
-                inputs=[cyberpunk_toggle],
+                inputs=[minimalist_toggle],
                 outputs=[theme_styles]
             )
 
@@ -654,7 +658,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
             None,
             "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/smolagents/mascot_smol.png",
         ),
-        resizeable=True,
+        resizable=True,
         scale=1,
     )
 
