@@ -35,34 +35,23 @@ model = QwenVLAPIModel(
 
 
 custom_css = """
-:root {
-    --body-background-fill: black!important;
-    --background-fill-secondary: #fad391!important;
-    --body-text-color: #f59e0b!important;
-    --block-text-color: #f59e0b!important;
-}
 .sandbox-container {
     position: relative;
     width: 910px;
     overflow: hidden;
     margin: auto;
 }
-.cyberpunk {
+.sandbox-container {
     height: 800px;
 }
-.minimal {
-    height: 700px;
-}
 .sandbox-frame {
+    display: none;
     position: absolute;
     top: 0;
     left: 0;
     width: 910px;
     height: 800px;
     pointer-events:none;
-}
-.minimal .sandbox-frame {
-    display: none;
 }
 
 .sandbox-iframe, .bsod-image {
@@ -71,19 +60,6 @@ custom_css = """
     height: <<HEIGHT>>px;
     border: 4px solid #444444;
     transform-origin: 0 0;
-}
-.cyberpunk .sandbox-iframe, .bsod-image {
-    /* top: 73px; */
-    top: 99px;
-    /* left: 74px; */
-    left: 110px;
-}
-.cyberpunk .sandbox-iframe {
-    transform: scale(0.535);
-    /* transform: scale(0.59); */
-}
-.minimal .sandbox-iframe {
-    transform: scale(0.65);
 }
 
 /* Colored label for task textbox */
@@ -100,11 +76,7 @@ custom_css = """
     flex-align:center;
     z-index: 100;
 }
-.cyberpunk .status-bar {
-    position: absolute;
-    bottom: 86px;
-    left: 355px;
-}
+
 .status-indicator {
     width: 15px;
     height: 15px;
@@ -117,9 +89,7 @@ custom_css = """
     padding: 0 10px;
     text-shadow: none;
 }
-.cyberpunk .status-text {
-    color: #fed244;
-}
+
 .status-interactive {
     background-color: #2ecc71;
     animation: blink 2s infinite;  
@@ -186,7 +156,7 @@ sandbox_html_template = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&display=swap');
 </style>
-<div class="sandbox-container {theme}">
+<div class="sandbox-container">
     <div class="status-bar">
         <div class="status-indicator {status_class}"></div>
         <div class="status-text">{status_text}</div>
@@ -202,8 +172,9 @@ sandbox_html_template = """
 </div>
 """.replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
 
-custom_js = """
-function() {
+custom_js = """function() {
+    document.body.classList.toggle('dark');
+
     // Function to check if sandbox is timing out
     const checkSandboxTimeout = function() {
         const timeElement = document.getElementById('sandbox-creation-time');
@@ -427,7 +398,7 @@ def get_or_create_sandbox(session_hash):
     
     return desktop
 
-def update_html(interactive_mode: bool, theme_checkbox: bool, request: gr.Request):
+def update_html(interactive_mode: bool, request: gr.Request):
     session_hash = request.session_hash
     desktop = get_or_create_sandbox(session_hash)
     auth_key = desktop.stream.get_auth_key()
@@ -443,7 +414,6 @@ def update_html(interactive_mode: bool, theme_checkbox: bool, request: gr.Reques
     creation_time = SANDBOX_METADATA[session_hash]['created_at'] if session_hash in SANDBOX_METADATA else time.time()
 
     sandbox_html_content = sandbox_html_template.format(
-        theme="cyberpunk" if theme_checkbox else "minimal",
         stream_url=stream_url,
         status_class=status_class,
         status_text=status_text,
@@ -483,7 +453,7 @@ def initialize_session(interactive_mode, request: gr.Request):
         with open(log_path, 'w') as f:
             f.write(f"Ready to go...\n")
     # Return HTML and session hash
-    return update_html(interactive_mode, "cyberpunk", request), session_hash
+    return update_html(interactive_mode, request), session_hash
 
 
 # Function to read log content that gets the path from session hash
@@ -564,7 +534,7 @@ class EnrichedGradioUI(GradioUI):
         finally:
             upload_to_hf_and_remove(data_dir)
 
-theme = gr.themes.Default(font=[gr.themes.GoogleFont("Oxanium"), "Futura", "sans-serif"], primary_hue="amber", secondary_hue="blue")
+theme = gr.themes.Default(font=["sans-serif"], primary_hue="amber", secondary_hue="blue")
 
 # Create a Gradio app with Blocks
 with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as demo:
@@ -576,7 +546,6 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
     with gr.Row():
         sandbox_html = gr.HTML(
             value=sandbox_html_template.format(
-                theme="cyberpunk",
                 stream_url="",
                 status_class="status-interactive",
                 status_text="Interactive"
@@ -613,7 +582,64 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
                 )
 
             update_btn = gr.Button("Let's go!", variant="primary")
-            theme_checkbox = gr.Checkbox(label="Cyberpunk Mode", value=True)
+
+            cyberpunk_toggle = gr.Checkbox(label="Go Cyberpunk!", value=False)
+
+            def apply_theme(cyberpunk_mode: bool):
+                if cyberpunk_mode:
+                    return """
+                        <style>
+                        :root {
+                            --body-background-fill: black!important;
+                            --background-fill-secondary: #fad391!important;
+                            --body-text-color: #f59e0b!important;
+                            --block-text-color: #f59e0b!important;
+                            --font: Oxanium;
+                        }
+                        .sandbox-frame {
+                            display: block!important;
+                        }
+
+                        .sandbox-iframe, .bsod-image {
+                            /* top: 73px; */
+                            top: 99px;
+                            /* left: 74px; */
+                            left: 110px;
+                        }
+                        .sandbox-iframe {
+                            transform: scale(0.535);
+                            /* transform: scale(0.59); */
+                        }
+
+                        .status-bar {
+                            position: absolute;
+                            bottom: 86px;
+                            left: 355px;
+                        }
+                        .status-text {
+                            color: #fed244;
+                        }
+                        </style>
+                    """
+                else:
+                    return """
+                        <style>
+                        .sandbox-container {
+                            height: 700px!important;
+                        }
+                        .sandbox-iframe {
+                            transform: scale(0.65);
+                        }
+                        </style>
+                    """
+
+            # Hidden HTML element to inject CSS dynamically
+            theme_styles = gr.HTML(apply_theme(False), visible=False)
+            cyberpunk_toggle.change(
+                fn=apply_theme,
+                inputs=[cyberpunk_toggle],
+                outputs=[theme_styles]
+            )
 
     chatbot_display = gr.Chatbot(
         label="Agent's execution logs",
@@ -650,35 +676,35 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
     # Function to set view-only mode
     def clear_and_set_view_only(task_input, request: gr.Request):
         # First clear the results, then set view-only mode
-        return "", update_html(False, theme_checkbox, request), gr.update(visible=False)
+        return "", update_html(False, request), gr.update(visible=False)
 
     def set_interactive(request: gr.Request):
-        return update_html(True, theme_checkbox, request)
+        return update_html(True, request)
 
     is_interactive = gr.Checkbox(value=True, visible=False)
 
     # Chain the events
     view_only_event = update_btn.click(
         fn=clear_and_set_view_only,
-        inputs=[task_input, theme_checkbox], 
+        inputs=[task_input], 
         outputs=[results_output, sandbox_html, results_container]
     )
     view_only_event.then(agent_ui.interact_with_agent, [task_input, stored_messages, session_state, session_hash_state], [chatbot_display]).then(
         fn=set_interactive,
-        inputs=[theme_checkbox],
+        inputs=[],
         outputs=sandbox_html
     )
 
-    theme_checkbox.change(
-        fn=update_html,
-        inputs=[is_interactive, theme_checkbox],
-        outputs=[sandbox_html]
-    )
 
     demo.load(
         fn=initialize_session,
         inputs=[is_interactive],
         outputs=[sandbox_html, session_hash_state],
+        js="""
+() => {
+    document.body.classList.toggle('dark');
+}
+""",
     )
 
 # Launch the app
