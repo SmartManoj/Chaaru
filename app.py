@@ -37,8 +37,7 @@ model = QwenVLAPIModel(
 custom_css = """
 :root {
     --body-background-fill: black!important;
-    --background-fill-secondary: #55221b!important;
-    --block-background-fill: black!important;
+    --background-fill-secondary: #fad391!important;
     --body-text-color: #f59e0b!important;
     --block-text-color: #f59e0b!important;
 }
@@ -184,6 +183,9 @@ footer_html="""
 </div>
 """
 sandbox_html_template = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&display=swap');
+</style>
 <div class="sandbox-container {theme}">
     <div class="status-bar">
         <div class="status-indicator {status_class}"></div>
@@ -562,7 +564,7 @@ class EnrichedGradioUI(GradioUI):
         finally:
             upload_to_hf_and_remove(data_dir)
 
-theme = gr.themes.Default(primary_hue="amber", secondary_hue="blue")
+theme = gr.themes.Default(font=[gr.themes.GoogleFont("Oxanium"), "Futura", "sans-serif"], primary_hue="amber", secondary_hue="blue")
 
 # Create a Gradio app with Blocks
 with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as demo:
