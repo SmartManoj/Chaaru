@@ -35,17 +35,25 @@ model = QwenVLAPIModel(
 
 
 custom_css = """
-.app {
-    background-color:black
+:root {
+    --body-background-fill: black!important;
+    --background-fill-secondary: #55221b!important;
+    --block-background-fill: black!important;
+    --body-text-color: #f59e0b!important;
+    --block-text-color: #f59e0b!important;
 }
 .sandbox-container {
     position: relative;
     width: 910px;
-    height: 800px;
     overflow: hidden;
     margin: auto;
 }
-
+.cyberpunk {
+    height: 800px;
+}
+.minimal {
+    height: 700px;
+}
 .sandbox-frame {
     position: absolute;
     top: 0;
@@ -65,7 +73,7 @@ custom_css = """
     border: 4px solid #444444;
     transform-origin: 0 0;
 }
-.minimal .sandbox-iframe, .bsod-image {
+.cyberpunk .sandbox-iframe, .bsod-image {
     /* top: 73px; */
     top: 99px;
     /* left: 74px; */
@@ -76,7 +84,7 @@ custom_css = """
     /* transform: scale(0.59); */
 }
 .minimal .sandbox-iframe {
-    transform: scale(0.7);
+    transform: scale(0.65);
 }
 
 /* Colored label for task textbox */
@@ -88,29 +96,31 @@ custom_css = """
 /* Status indicator light */
 .status-bar {
     display: flex;
-    position: absolute;
-    bottom: 86px;
-    left: 355px;
     flex-direction: row;
     align-items: center;
     flex-align:center;
     z-index: 100;
 }
-
+.cyberpunk .status-bar {
+    position: absolute;
+    bottom: 86px;
+    left: 355px;
+}
 .status-indicator {
-    width: 20px;
-    height: 20px;
+    width: 15px;
+    height: 15px;
     border-radius: 50%;
 }
 
 .status-text {
     font-size: 16px;
     font-weight: bold;
-    color: #fed244;
     padding: 0 10px;
     text-shadow: none;
 }
-
+.cyberpunk .status-text {
+    color: #fed244;
+}
 .status-interactive {
     background-color: #2ecc71;
     animation: blink 2s infinite;  
@@ -296,8 +306,16 @@ function() {
         const btn = document.getElementById('refresh-log-btn');
         if (btn) btn.click();
     }, 5000);
+
+    // Force dark mode
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('__theme')) {
+        params.set('__theme', 'dark');
+        window.location.search = params.toString();
+    }
 }
 """
+
 def write_to_console_log(log_file_path, message):
     """
     Appends a message to the specified log file with a newline character.
@@ -544,9 +562,10 @@ class EnrichedGradioUI(GradioUI):
         finally:
             upload_to_hf_and_remove(data_dir)
 
+theme = gr.themes.Default(primary_hue="amber", secondary_hue="blue")
 
 # Create a Gradio app with Blocks
-with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
+with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as demo:
     #Storing session hash in a state variable
     session_hash_state = gr.State(None)
 
@@ -593,7 +612,6 @@ with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
 
             update_btn = gr.Button("Let's go!", variant="primary")
             theme_checkbox = gr.Checkbox(label="Cyberpunk Mode", value=True)
-            cancel_btn = gr.Button("Interrupt running agent")
 
     chatbot_display = gr.Chatbot(
         label="Agent's execution logs",
@@ -648,13 +666,6 @@ with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
         inputs=[theme_checkbox],
         outputs=sandbox_html
     )
-    cancel_btn.click(fn=(lambda x: x), cancels=[view_only_event])
-
-    demo.load(
-        fn=initialize_session,
-        inputs=[is_interactive],
-        outputs=[sandbox_html, session_hash_state]
-    )
 
     theme_checkbox.change(
         fn=update_html,
@@ -662,6 +673,11 @@ with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
         outputs=[sandbox_html]
     )
 
+    demo.load(
+        fn=initialize_session,
+        inputs=[is_interactive],
+        outputs=[sandbox_html, session_hash_state],
+    )
 
 # Launch the app
 if __name__ == "__main__":
