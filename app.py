@@ -35,34 +35,50 @@ model = QwenVLAPIModel(
 
 
 custom_css = """
+.app {
+    background-color:black
+}
 .sandbox-container {
     position: relative;
     width: 910px;
-    height: 713px;
+    height: 800px;
     overflow: hidden;
     margin: auto;
 }
 
-.sandbox-background {
+.sandbox-frame {
     position: absolute;
     top: 0;
     left: 0;
     width: 910px;
-    height: 713px;
+    height: 800px;
+    pointer-events:none;
+}
+.minimal .sandbox-frame {
+    display: none;
 }
 
 .sandbox-iframe, .bsod-image {
     position: absolute;
-    top: 8%;
-    left: 7%;
     width: <<WIDTH>>px;
     height: <<HEIGHT>>px;
     border: 4px solid #444444;
     transform-origin: 0 0;
 }
-.sandbox-iframe {
-    transform: scale(0.605);
+.minimal .sandbox-iframe, .bsod-image {
+    /* top: 73px; */
+    top: 99px;
+    /* left: 74px; */
+    left: 110px;
 }
+.cyberpunk .sandbox-iframe {
+    transform: scale(0.535);
+    /* transform: scale(0.59); */
+}
+.minimal .sandbox-iframe {
+    transform: scale(0.7);
+}
+
 /* Colored label for task textbox */
 .primary-color-label label span {
     font-weight: bold;
@@ -70,31 +86,29 @@ custom_css = """
 }
 
 /* Status indicator light */
-.status-indicator {
+.status-bar {
+    display: flex;
     position: absolute;
-    bottom: 4%;
-    left: 43%;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    border: 2px solid black;
+    bottom: 86px;
+    left: 355px;
+    flex-direction: row;
+    align-items: center;
+    flex-align:center;
     z-index: 100;
 }
 
+.status-indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+}
+
 .status-text {
-    position: absolute;
-    bottom: 3.8%;
-    left: 47%;
-    right:40%
     font-size: 16px;
     font-weight: bold;
-    color: black;
-    background-color: white;
+    color: #fed244;
     padding: 0 10px;
-    border-radius: 3px;
-    border: 2px solid black;
     text-shadow: none;
-    z-index: 100;
 }
 
 .status-interactive {
@@ -160,21 +174,19 @@ footer_html="""
 </div>
 """
 sandbox_html_template = """
-<div class="sandbox-container">
-    <img src="https://huggingface.co/datasets/m-ric/images/resolve/main/HUD_leandro.png" class="sandbox-background" />
-    <div class="status-text">{status_text}</div>
-    <div class="status-indicator {status_class}"></div>
+<div class="sandbox-container {theme}">
+    <div class="status-bar">
+        <div class="status-indicator {status_class}"></div>
+        <div class="status-text">{status_text}</div>
+    </div>
     <iframe id="sandbox-iframe"
         src="{stream_url}" 
         class="sandbox-iframe"
         style="display: block;"
         allowfullscreen>
     </iframe>
-    <img id="bsod-image"
-        src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/blue_screen_of_death.gif"
-        class="bsod-image"
-        style="display: none;
-    />
+    <img src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/blue_screen_of_death.gif" class="bsod-image" style="display: none;"/>
+    <img src="https://huggingface.co/datasets/m-ric/images/resolve/main/HUD_thom.png" class="sandbox-frame" />
 </div>
 """.replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
 
@@ -383,6 +395,8 @@ def get_or_create_sandbox(session_hash):
     print(f"Creating new sandbox for session {session_hash}")
     desktop = Sandbox(api_key=E2B_API_KEY, resolution=(WIDTH, HEIGHT), dpi=96, timeout=SANDBOX_TIMEOUT)
     desktop.stream.start(require_auth=True)
+    firefox_skipwelcome_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}' | sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
+    desktop.commands.run(firefox_skipwelcome_cmd)
     
     # Store sandbox with metadata
     SANDBOXES[session_hash] = desktop
@@ -393,7 +407,7 @@ def get_or_create_sandbox(session_hash):
     
     return desktop
 
-def update_html(interactive_mode, request: gr.Request):
+def update_html(interactive_mode: bool, theme_checkbox: bool, request: gr.Request):
     session_hash = request.session_hash
     desktop = get_or_create_sandbox(session_hash)
     auth_key = desktop.stream.get_auth_key()
@@ -409,6 +423,7 @@ def update_html(interactive_mode, request: gr.Request):
     creation_time = SANDBOX_METADATA[session_hash]['created_at'] if session_hash in SANDBOX_METADATA else time.time()
 
     sandbox_html_content = sandbox_html_template.format(
+        theme="cyberpunk" if theme_checkbox else "minimal",
         stream_url=stream_url,
         status_class=status_class,
         status_text=status_text,
@@ -448,7 +463,8 @@ def initialize_session(interactive_mode, request: gr.Request):
         with open(log_path, 'w') as f:
             f.write(f"Ready to go...\n")
     # Return HTML and session hash
-    return update_html(interactive_mode, request), session_hash
+    return update_html(interactive_mode, "cyberpunk", request), session_hash
+
 
 # Function to read log content that gets the path from session hash
 def update_terminal_from_session(session_hash):
@@ -539,6 +555,7 @@ with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
     with gr.Row():
         sandbox_html = gr.HTML(
             value=sandbox_html_template.format(
+                theme="cyberpunk",
                 stream_url="",
                 status_class="status-interactive",
                 status_text="Interactive"
@@ -575,6 +592,7 @@ with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
                 )
 
             update_btn = gr.Button("Let's go!", variant="primary")
+            theme_checkbox = gr.Checkbox(label="Cyberpunk Mode", value=True)
             cancel_btn = gr.Button("Interrupt running agent")
 
     chatbot_display = gr.Chatbot(
@@ -612,29 +630,36 @@ with gr.Blocks(css=custom_css, js=custom_js, fill_width=True) as demo:
     # Function to set view-only mode
     def clear_and_set_view_only(task_input, request: gr.Request):
         # First clear the results, then set view-only mode
-        return "", update_html(False, request), gr.update(visible=False)
+        return "", update_html(False, theme_checkbox, request), gr.update(visible=False)
 
     def set_interactive(request: gr.Request):
-        return update_html(True, request)
+        return update_html(True, theme_checkbox, request)
 
+    is_interactive = gr.Checkbox(value=True, visible=False)
 
     # Chain the events
     view_only_event = update_btn.click(
         fn=clear_and_set_view_only,
-        inputs=[task_input], 
+        inputs=[task_input, theme_checkbox], 
         outputs=[results_output, sandbox_html, results_container]
     )
     view_only_event.then(agent_ui.interact_with_agent, [task_input, stored_messages, session_state, session_hash_state], [chatbot_display]).then(
         fn=set_interactive,
-        inputs=[],
+        inputs=[theme_checkbox],
         outputs=sandbox_html
     )
     cancel_btn.click(fn=(lambda x: x), cancels=[view_only_event])
 
     demo.load(
         fn=initialize_session,
-        inputs=[gr.Checkbox(value=True, visible=False)],
+        inputs=[is_interactive],
         outputs=[sandbox_html, session_hash_state]
+    )
+
+    theme_checkbox.change(
+        fn=update_html,
+        inputs=[is_interactive, theme_checkbox],
+        outputs=[sandbox_html]
     )
 
 
