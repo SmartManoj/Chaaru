@@ -98,7 +98,7 @@ class E2BVisionAgent(CodeAgent):
         tools: List[tool] = None,
         max_steps: int = 200,
         verbosity_level: LogLevel = 4,
-        planning_interval: int = 15,
+        planning_interval: int = 10,
         log_file = None,
         **kwargs
     ):
@@ -340,8 +340,7 @@ class E2BVisionAgent(CodeAgent):
         memory_step.observations_images = [image.copy()]  # This takes the original image directly.
 
         # memory_step.observations_images = [screenshot_path] # IF YOU USE THIS INSTEAD OF ABOVE, LAUNCHING A SECOND TASK BREAKS
-        
-            
+
 
     def close(self):
         """Clean up resources"""
@@ -458,7 +457,7 @@ class QwenVLAPIModel(Model):
         )
 
         assert not self.hf_base_url.endswith("/v1/"), "Enter your base url without '/v1/' suffix."
-        
+
         # Initialize HF OpenAI-compatible client if token is provided
         self.hf_client = None
         if hf_token:
@@ -512,22 +511,23 @@ class QwenVLAPIModel(Model):
                     if item["type"] == "text":
                         content.append({"type": "text", "text": item["text"]})
                     elif item["type"] == "image":
-                        # Handle image path or direct image object
-                        if isinstance(item["image"], str):
-                            # Image is a path
-                            with open(item["image"], "rb") as image_file:
-                                base64_image = base64.b64encode(image_file.read()).decode("utf-8")
-                        else:
-                            # Image is a PIL image or similar object
-                            img_byte_arr = BytesIO()
-                            base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
+                        # # Handle image path or direct image object
+                        # if isinstance(item["image"], str):
+                        #     # Image is a path
+                        #     with open(item["image"], "rb") as image_file:
+                        #         base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+                        # else:
+                        #     # Image is a PIL image or similar object
+                        #     img_byte_arr = BytesIO()
+                        #     base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
 
-                        content.append({
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{base64_image}"
-                            }
-                        })
+                        # content.append({
+                        #     "type": "image_url",
+                        #     "image_url": {
+                        #         "url": f"data:image/png;base64,{base64_image}"
+                        #     }
+                        # })
+                        pass
             else:
                 # Plain text message
                 content = [{"type": "text", "text": msg["content"]}]
@@ -540,7 +540,7 @@ class QwenVLAPIModel(Model):
         """Call the Hugging Face OpenAI-compatible endpoint"""
 
         # Extract parameters with defaults
-        max_tokens = kwargs.get("max_new_tokens", 1024)
+        max_tokens = kwargs.get("max_new_tokens", 4096)
         temperature = kwargs.get("temperature", 0.7)
         top_p = kwargs.get("top_p", 0.9)
         stream = kwargs.get("stream", False)
@@ -571,7 +571,7 @@ class QwenVLAPIModel(Model):
         completion = self.hyperbolic_client.chat.completions.create(
             model=self.model_path,
             messages=formatted_messages,
-            max_tokens=kwargs.get("max_new_tokens", 1024),
+            max_tokens=kwargs.get("max_new_tokens", 4096),
             temperature=kwargs.get("temperature", 0.7),
             top_p=kwargs.get("top_p", 0.9),
             stop=stop_sequences
