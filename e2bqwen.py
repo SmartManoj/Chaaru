@@ -258,7 +258,7 @@ class E2BVisionAgent(CodeAgent):
             """
             Waits for the specified number of seconds. Very useful in case the prior order is still executing (for example starting very heavy applications like browsers or office apps)
             Args:
-                seconds: Number of seconds to wait
+                seconds: Number of seconds to wait, generally 3 is enough.
             """
             time.sleep(seconds)
             self.logger.log(self.log_path, f"Waited for {seconds} seconds")
@@ -336,8 +336,8 @@ class E2BVisionAgent(CodeAgent):
                     previous_memory_step.observations_images = None
 
             # Add to the current memory step
-            # memory_step.observations_images = [image.copy()] # This takes the original image directly.
-            memory_step.observations_images = [screenshot_path]
+            memory_step.observations_images = [image.copy()] # This takes the original image directly. 
+            # memory_step.observations_images = [screenshot_path] # IF YOU USE THIS INSTEAD OF ABOVE, LAUNCHING A SECOND TASK BREAKS
 
             #Storing memory and metadata to file:
             self.store_metadata_to_file(agent)
@@ -441,7 +441,7 @@ class QwenVLAPIModel(Model):
                                 base64_image = base64.b64encode(image_file.read()).decode("utf-8")
                         else:
                             # Image is a PIL image or similar object
-                            img_byte_arr = io.BytesIO()
+                            img_byte_arr = BytesIO()
                             item["image"].save(img_byte_arr, format="PNG")
                             base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
 

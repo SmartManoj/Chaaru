@@ -118,6 +118,7 @@ custom_css = """
 
 .logo-container {
     display: flex;
+    flex-direction: column;
     justify-content: space-between;
     align-items: center;
     width: 100%;
@@ -386,8 +387,9 @@ def get_or_create_sandbox(session_hash):
     print(f"Creating new sandbox for session {session_hash}")
     desktop = Sandbox(api_key=E2B_API_KEY, resolution=(WIDTH, HEIGHT), dpi=96, timeout=SANDBOX_TIMEOUT)
     desktop.stream.start(require_auth=True)
-    firefox_skipwelcome_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}' | sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
-    desktop.commands.run(firefox_skipwelcome_cmd)
+    setup_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}'
+sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
+    desktop.commands.run(setup_cmd)
     
     # Store sandbox with metadata
     SANDBOXES[session_hash] = desktop
@@ -591,7 +593,6 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
                         <style>
                         :root {
                             --body-background-fill: black!important;
-                            --background-fill-secondary: #fad391!important;
                             --body-text-color: #f59e0b!important;
                             --block-text-color: #f59e0b!important;
                             --font: Oxanium;
@@ -641,6 +642,11 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
                 outputs=[theme_styles]
             )
 
+            footer = gr.HTML(
+                value=footer_html,
+                label="Header"
+            )
+
     chatbot_display = gr.Chatbot(
         label="Agent's execution logs",
         type="messages",
@@ -652,10 +658,6 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
         scale=1,
     )
 
-    footer_html = gr.HTML(
-        value=footer_html,
-        label="Header"
-    )
     agent_ui = EnrichedGradioUI(CodeAgent(tools=[], model=None, name="ok", description="ok"))
 
     def read_log_content(log_file, tail=4):
