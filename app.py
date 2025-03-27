@@ -140,7 +140,7 @@ custom_css = """
 """.replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
 
 footer_html="""
-<h3 style="text-align: center"><i>Powered by:</i></h2>
+<h3 style="text-align: center; margin-top:100px;"><i>Powered by:</i></h2>
 <div class="logo-container">
     <a class="logo-item" href="https://github.com/huggingface/smolagents">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/smolagents/smolagents.png" alt="Smolagents logo">
