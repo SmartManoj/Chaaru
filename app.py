@@ -143,13 +143,13 @@ footer_html="""
 <h3 style="text-align: center"><i>Powered by:</i></h2>
 <div class="logo-container">
     <a class="logo-item" href="https://github.com/e2b-dev/desktop">
-    <img src="https://image.pitchbook.com/XcarTFiUTDTVBfBep3JKHtiTAob1714067332850_200x200" alt="e2b logo", style="height:100px;">
+    <img src="https://image.pitchbook.com/XcarTFiUTDTVBfBep3JKHtiTAob1714067332850_200x200" alt="e2b logo">
     </a>
     <a class="logo-item" href="https://github.com/huggingface/smolagents">
     <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/smolagents/smolagents.png" alt="Smolagents logo">
     </a>
     <a class="logo-item" href="https://huggingface.co/Qwen/Qwen2.5-VL-32B-Instruct">
-    <img src="https://upload.wikimedia.org/wikipedia/en/8/85/Logo_of_Qwen.png" alt="Qwen logo", style="height:48px;">
+    <img src="https://upload.wikimedia.org/wikipedia/en/8/85/Logo_of_Qwen.png" alt="Qwen logo">
     </a>
 </div>
 """
@@ -174,7 +174,7 @@ sandbox_html_template = """
 """.replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
 
 custom_js = """function() {
-    document.body.classList.toggle('dark');
+    document.body.classList.add('dark');
 
     // Function to check if sandbox is timing out
     const checkSandboxTimeout = function() {
@@ -702,11 +702,6 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
         fn=initialize_session,
         inputs=[is_interactive],
         outputs=[sandbox_html, session_hash_state],
-        js="""
-() => {
-    document.body.classList.toggle('dark');
-}
-""",
     )
 
 # Launch the app
