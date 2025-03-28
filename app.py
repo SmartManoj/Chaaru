@@ -115,38 +115,32 @@ custom_css = """
 .logo-container {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     width: 100%;
     box-sizing: border-box;
-}
+    gap: 5px;
 
 .logo-item {
-    flex: 1;
     display: flex;
-    justify-content: center;
     align-items: center;
-    padding: 0 15px;
+    padding: 0 30px;
+    gap: 10px;
+    text-decoration: none!important;
+    color: #f59e0b;
+    font-size:17px;
 }
-
-.logo-item img {
-    height: 60px;
-    object-fit: contain;
+.logo-item:hover {
+    color: #935f06!important;
 }
 """.replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
 
 footer_html="""
-<h3 style="text-align: center; margin-top:100px;"><i>Powered by:</i></h2>
+<h3 style="text-align: center; margin-top:100px;"><i>Powered by open source:</i></h2>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 <div class="logo-container">
-    <a class="logo-item" href="https://github.com/huggingface/smolagents">
-    <img src="https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/smolagents/smolagents.png" alt="Smolagents logo">
-    </a>
-    <a class="logo-item" href="https://huggingface.co/Qwen/Qwen2.5-VL-32B-Instruct">
-    <img src="https://upload.wikimedia.org/wikipedia/en/8/85/Logo_of_Qwen.png" alt="Qwen logo", style="height:48px;margin-top=10px;">
-    </a>
-    <a class="logo-item" href="https://github.com/e2b-dev/desktop">
-    <img src="https://image.pitchbook.com/XcarTFiUTDTVBfBep3JKHtiTAob1714067332850_200x200" alt="e2b logo", style="height:80px;">
-    </a>
+    <a class="logo-item" href="https://github.com/huggingface/smolagents"><i class="fa fa-github"></i>smolagents</a>
+    <a class="logo-item" href="https://huggingface.co/Qwen/Qwen2.5-VL-32B-Instruct"><i class="fa fa-github"></i>Qwen-VL</a>
+    <a class="logo-item" href="https://github.com/e2b-dev/desktop"><i class="fa fa-github"></i>E2B Desktop</a>
 </div>
 """
 sandbox_html_template = """
@@ -577,6 +571,8 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
                 elem_classes="primary-color-label"
             )
 
+            update_btn = gr.Button("Let's go!", variant="primary")
+
             gr.Examples(
                 examples=[
                     "Check the commuting time between Bern and Zurich on Google maps",
@@ -600,9 +596,8 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
                     elem_id="results-output"
                 )
 
-            update_btn = gr.Button("Let's go!", variant="primary")
 
-            minimalist_toggle = gr.Checkbox(label="Minimalist mode - no frame", value=False)
+            minimalist_toggle = gr.Checkbox(label="Innie/Outie", value=False)
 
             def apply_theme(minimalist_mode: bool):
                 if not minimalist_mode:
