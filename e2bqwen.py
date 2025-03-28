@@ -19,7 +19,7 @@ from smolagents.memory import ActionStep
 from smolagents.models import ChatMessage, MessageRole, Model
 from smolagents.monitoring import LogLevel
 from smolagents.agent_types import AgentImage
-
+from PIL import ImageDraw
 
 E2B_SYSTEM_PROMPT_TEMPLATE = """You are a desktop automation assistant that can control a remote desktop environment.
 On top of performing computations in the Python code snippets that you create, you only have access to these tools to interact with the desktop, no additional ones:
@@ -35,7 +35,7 @@ IMPORTANT:
 - Remember the tools that you have as those can save you time, for example open_url to enter a website rather than searching for the browser in the OS.
 - Whenever you click, MAKE SURE to click in the middle of the button, text, link or any other clickable element. Not under, not on the side. IN THE MIDDLE. In menus it is always better to click in the middle of the text rather than in the tiny icon. Calculate extremelly well the coordinates. A mistake here can make the full task fail.
 - To navigate the desktop you should open menus and click. Menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
-- Always analyze the latest screenshot carefully before performing actions. If you clicked somewhere in the previous action and in the screenshot nothing happened, make sure the mouse is where it should be. Otherwise you can see that the coordinates were wrong.
+- Always analyze the latest screenshot carefully before performing actions. If you clicked somewhere in the previous action, a red crosshair will appear at the exact click location: if nothing happened, check that this location is exactly where you intended to click. Otherwise correct the click coordinates.
 
 You must proceed step by step:
 1. Understand the task thoroughly
@@ -81,7 +81,6 @@ final_answer("Done")
 ```<end_code>
 
 Remember to:
-
 Always wait for appropriate loading times
 Use precise coordinates based on the current screenshot
 Execute one action at a time
@@ -149,6 +148,7 @@ class E2BVisionAgent(CodeAgent):
             self.desktop.move_mouse(x, y)
             self.desktop.left_click()
             self.logger.log(f"Clicked at coordinates ({x}, {y})")
+            self.click_coordinates = [x, y]
             return f"Clicked at coordinates ({x}, {y})"
 
         @tool
@@ -162,6 +162,7 @@ class E2BVisionAgent(CodeAgent):
             self.desktop.move_mouse(x, y)
             self.desktop.right_click()
             self.logger.log(f"Right-clicked at coordinates ({x}, {y})")
+            self.click_coordinates = [x, y]
             return f"Right-clicked at coordinates ({x}, {y})"
 
         @tool
@@ -175,6 +176,7 @@ class E2BVisionAgent(CodeAgent):
             self.desktop.move_mouse(x, y)
             self.desktop.double_click()
             self.logger.log(f"Double-clicked at coordinates ({x}, {y})")
+            self.click_coordinates = [x, y]
             return f"Double-clicked at coordinates ({x}, {y})"
 
         @tool
@@ -204,12 +206,10 @@ class E2BVisionAgent(CodeAgent):
         @tool
         def press_key(key: str) -> str:
             """
-            Presses a keyboard key (e.g., "Return", "tab", "ctrl+c")
+            Presses a keyboard key
             Args:
-                key: The key to press (e.g., "Return", "tab", "ctrl+c")
+                key: The key to press (e.g. "enter", "space", "backspace", etc.).
             """
-            if key == "enter":
-                key = "Return"
             self.desktop.press(key)
             self.logger.log(f"Pressed key: {key}")
             return f"Pressed key: {key}"
@@ -304,6 +304,17 @@ class E2BVisionAgent(CodeAgent):
         screenshot_bytes = self.desktop.screenshot()
         image = Image.open(BytesIO(screenshot_bytes))
 
+        if getattr(self, "click_coordinates", None):
+            # If a click was performed in the last action, mark it on the image
+            x, y = self.click_coordinates
+            draw = ImageDraw.Draw(image)
+            cross_size, linewidth = 10, 3
+            # Draw red cross lines
+            draw.line((x - cross_size, y, x + cross_size, y), fill="red", width=linewidth)
+            draw.line((x, y - cross_size, x, y + cross_size), fill="red", width=linewidth)
+            # Add a circle around it for better visibility
+            draw.ellipse((x - cross_size * 2, y - cross_size * 2, x + cross_size * 2, y + cross_size * 2), outline="red", width=linewidth)
+
         # Create a filename with step number
         screenshot_path = os.path.join(self.data_dir, f"step_{current_step:03d}.png")
         image.save(screenshot_path)
@@ -323,6 +334,8 @@ class E2BVisionAgent(CodeAgent):
         memory_step.observations_images = [image.copy()]
 
         # memory_step.observations_images = [screenshot_path] # IF YOU USE THIS INSTEAD OF ABOVE, LAUNCHING A SECOND TASK BREAKS
+
+        self.click_coordinates = None
 
 
     def close(self):

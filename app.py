@@ -580,7 +580,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
 
             gr.Examples(
                 examples=[
-                    "Check the commuting time between Bern and Zurich",
+                    "Check the commuting time between Bern and Zurich on Google maps",
                     "Write 'Hello World' in a text editor",
                     "Search a flight Paris - Berlin for tomorrow",
                     "Could you head to Fontainebleau (France) in Google Maps then drag and drop to position the castle of Fontainebleau exactly in the center?",
