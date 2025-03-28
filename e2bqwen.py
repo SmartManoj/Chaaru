@@ -18,7 +18,9 @@ from smolagents import CodeAgent, tool, HfApiModel
 from smolagents.memory import ActionStep
 from smolagents.models import ChatMessage, MessageRole, Model
 from smolagents.monitoring import LogLevel
-    
+from smolagents.agent_types import AgentImage
+
+
 E2B_SYSTEM_PROMPT_TEMPLATE = """You are a desktop automation assistant that can control a remote desktop environment.
 On top of performing computations in the Python code snippets that you create, you only have access to these tools to interact with the desktop, no additional ones:
 {%- for tool in tools.values() %}
@@ -321,6 +323,7 @@ class E2BVisionAgent(CodeAgent):
         # Create a filename with step number
         screenshot_path = os.path.join(self.data_dir, f"step_{current_step:03d}.png")
         image.save(screenshot_path)
+        self.last_screenshot = AgentImage(screenshot_path)
         print(f"Saved screenshot for step {current_step} to {screenshot_path}")
 
         for (
@@ -333,7 +336,7 @@ class E2BVisionAgent(CodeAgent):
                 previous_memory_step.observations_images = None
 
         # Add to the current memory step
-        memory_step.observations_images = [image.copy()]  # This takes the original image directly.
+        memory_step.observations_images = [image.copy()]
 
         # memory_step.observations_images = [screenshot_path] # IF YOU USE THIS INSTEAD OF ABOVE, LAUNCHING A SECOND TASK BREAKS
 

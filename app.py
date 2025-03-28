@@ -522,11 +522,18 @@ class EnrichedGradioUI(GradioUI):
         yield stored_messages
 
         for msg in stream_to_gradio(session_state["agent"], task=full_task, reset_agent_memory=False):
+            if hasattr(session_state["agent"], "last_screenshot") and msg.content == "-----": # Append the last screenshot before the end of step
+                stored_messages.append(gr.ChatMessage(
+                    role="assistant",
+                    content={"path": session_state["agent"].last_screenshot.to_string(), "mime_type": "image/png"},
+                ))
             stored_messages.append(msg)
             yield stored_messages
 
         yield stored_messages
-            # save_final_status(data_dir, "completed", details = str(session_state["agent"].memory.get_succinct_steps()))
+
+        # TODO: uncomment below after testing
+        #     save_final_status(data_dir, "completed", details = str(session_state["agent"].memory.get_succinct_steps()))
         # except Exception as e:
         #     error_message=f"Error in interaction: {str(e)}"
         #     stored_messages.append(gr.ChatMessage(role="assistant", content=error_message))
