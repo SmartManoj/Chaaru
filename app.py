@@ -541,7 +541,7 @@ class EnrichedGradioUI(GradioUI):
 theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue")
 
 # Create a Gradio app with Blocks
-with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=False) as demo:
+with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
     #Storing session hash in a state variable
     session_hash_state = gr.State(None)
 
