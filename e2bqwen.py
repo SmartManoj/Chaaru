@@ -29,7 +29,7 @@ On top of performing computations in the Python code snippets that you create, y
     Returns an output of type: {{tool.output_type}}
 {%- endfor %}
 
-The desktop has a resolution of <<resolution_x>>x<<resolution_y>>.
+The desktop has a resolution of <<resolution_x>>x<<resolution_y>>, take it into account to decide clicking coordinates.
 
 IMPORTANT:
 - Remember the tools that you have as those can save you time, for example open_url to enter a website rather than searching for the browser in the OS.
@@ -84,9 +84,14 @@ Remember to:
 Always wait for appropriate loading times
 Use precise coordinates based on the current screenshot
 Execute one action at a time
-Verify the result before proceeding to the next step. If you repeated an action already without effect, it means that this action is useless: don't repeat it and try something else.
+On each step, look at the last screenshot and action to validate if previous steps worked and decide the next action. If you repeated an action already without effect, it means that this action is useless: don't repeat it and try something else.
 Use click to move through menus on the desktop and scroll for web and specific applications.
-REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
+When clicking an element, always make sure to click THE MIDDLE of that element! Else you risk to miss it.
+Always analyze the latest screenshot carefully before performing actions. Make sure to:
+1. Look at elements on the screen to determine what to click or interact with
+2. Use precise coordinates for mouse movements and clicks
+3. You can wait for page loads or animations to complete using the wait() tool
+4. Sometimes you may have missed a click, so never assume that you're on the right page, always make sure that your previous action worked. In the screenshot you can see if the mouse is out of the clickable area. Pay special attention to this.
 """
 
 def draw_marker_on_image(image, click_coordinates):

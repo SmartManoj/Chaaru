@@ -497,27 +497,11 @@ class EnrichedGradioUI(GradioUI):
         else:
             session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop)
         
-        
-        # Construct the full task with instructions
-        full_task = task_input + dedent(f"""
-            The desktop has a resolution of {WIDTH}x{HEIGHT}, take it into account to decide clicking coordinates.
-            When clicking an element, always make sure to click THE MIDDLE of that element! Else you risk to miss it.
-    
-            Always analyze the latest screenshot carefully before performing actions. Make sure to:
-            1. Look at elements on the screen to determine what to click or interact with
-            2. Use precise coordinates for mouse movements and clicks
-            3. Wait for page loads or animations to complete using the wait() tool
-            4. Sometimes you may have missed a click, so never assume that you're on the right page, always make sure that your previous action worked. In the screenshot you can see if the mouse is out of the clickable area. Pay special attention to this.
-    
-            When you receive a task, break it down into step-by-step actions. On each step, look at the current screenshot to validate if previous steps worked and decide the next action.
-            We can only execute one action at a time. On each step, answer only a python blob with the action to perform
-        """)
-
         try:
             stored_messages.append(gr.ChatMessage(role="user", content=task_input))
             yield stored_messages
 
-            for msg in stream_to_gradio(session_state["agent"], task=full_task, reset_agent_memory=False):
+            for msg in stream_to_gradio(session_state["agent"], task=task_input, reset_agent_memory=False):
                 if hasattr(session_state["agent"], "last_screenshot") and msg.content == "-----": # Append the last screenshot before the end of step
                     stored_messages.append(gr.ChatMessage(
                         role="assistant",
