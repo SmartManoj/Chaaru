@@ -346,7 +346,47 @@ class E2BVisionAgent(CodeAgent):
             self.desktop.kill()
             print("E2B sandbox terminated")
 
-from smolagents import HfApiModel
+
+class QwenVLAPIModel(Model):
+    """Model wrapper for Qwen2.5VL API with fallback mechanism"""
+    
+    def __init__(
+        self, 
+        hf_base_url,
+        model_path: str = "Qwen/Qwen2.5-VL-72B-Instruct",
+        provider: str = "hyperbolic",
+        hf_token: str = None,
+    ):
+        super().__init__()
+        self.model_id = model_path
+        self.hf_base_url = hf_base_url
+        self.dedicated_endpoint_model = HfApiModel(
+            hf_base_url,
+            token=hf_token
+        )
+        self.fallback_model = HfApiModel(
+            model_path,
+            provider=provider,
+            token=hf_token,
+        )
+        
+    def __call__(
+        self, 
+        messages: List[Dict[str, Any]], 
+        stop_sequences: Optional[List[str]] = None, 
+        **kwargs
+    ) -> ChatMessage:
+        
+        try:
+            return self.dedicated_endpoint_model(messages, stop_sequences, **kwargs)
+        except Exception as e:
+            print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
+                
+        # Continue to fallback
+        try:
+            return self.fallback_model(messages, stop_sequences, **kwargs)
+        except Exception as e:
+            raise Exception(f"Both endpoints failed. Last error: {e}")
 
 # class QwenVLAPIModel(Model):
 #     """Model wrapper for Qwen2.5VL API with fallback mechanism"""
@@ -359,16 +399,25 @@ from smolagents import HfApiModel
 #         hf_base_url: str = "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud"
 #     ):
 #         super().__init__()
+#         self.model_path = model_path
 #         self.model_id = model_path
+#         self.provider = provider
+#         self.hf_token = hf_token
 #         self.hf_base_url = hf_base_url
-#         self.dedicated_endpoint_model = HfApiModel(
-#             hf_base_url,
-#             token=hf_token
+        
+#         # Initialize hyperbolic client
+#         self.hyperbolic_client = InferenceClient(
+#             provider=self.provider,
 #         )
-#         self.fallback_model = HfApiModel(
-#             model_path,
-#             provider=provider,
-#             token=hf_token,
+
+#         assert not self.hf_base_url.endswith("/v1/"), "Enter your base url without '/v1/' suffix."
+
+#         # Initialize HF OpenAI-compatible client if token is provided
+#         self.hf_client = None
+#         from openai import OpenAI
+#         self.hf_client = OpenAI(
+#             base_url=self.hf_base_url + "/v1/",
+#             api_key=self.hf_token
 #         )
         
 #     def __call__(
@@ -377,15 +426,27 @@ from smolagents import HfApiModel
 #         stop_sequences: Optional[List[str]] = None, 
 #         **kwargs
 #     ) -> ChatMessage:
+#         """Convert a list of messages to an API request with fallback mechanism"""
         
+#         # Format messages once for both APIs
+#         formatted_messages = self._format_messages(messages)
+        
+#         # First try the HF endpoint if available - THIS ALWAYS FAILS SO SKIPPING
 #         try:
-#             return self.dedicated_endpoint_model(messages, stop_sequences, **kwargs)
+#             completion = self._call_hf_endpoint(
+#                 formatted_messages, 
+#                 stop_sequences, 
+#                 **kwargs
+#             )
+#             print("SUCCESSFUL call of inference endpoint")
+#             return ChatMessage(role=MessageRole.ASSISTANT, content=completion)
 #         except Exception as e:
 #             print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
-                
-#         # Continue to fallback
+#             # Continue to fallback
+        
+#         # Fallback to hyperbolic
 #         try:
-#             return self.fallback_model(messages, stop_sequences, **kwargs)
+#             return self._call_hyperbolic(formatted_messages, stop_sequences, **kwargs)
 #         except Exception as e:
 #             raise Exception(f"Both endpoints failed. Last error: {e}")
     
@@ -411,7 +472,6 @@ from smolagents import HfApiModel
 #                         else:
 #                             # Image is a PIL image or similar object
 #                             img_byte_arr = BytesIO()
-#                             item["image"].save(img_byte_arr, format="PNG")
 #                             base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
 
 #                         content.append({
@@ -428,167 +488,67 @@ from smolagents import HfApiModel
         
 #         return formatted_messages
 
-class QwenVLAPIModel(Model):
-    """Model wrapper for Qwen2.5VL API with fallback mechanism"""
-    
-    def __init__(
-        self, 
-        model_path: str = "Qwen/Qwen2.5-VL-72B-Instruct",
-        provider: str = "hyperbolic",
-        hf_token: str = None,
-        hf_base_url: str = "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud"
-    ):
-        super().__init__()
-        self.model_path = model_path
-        self.model_id = model_path
-        self.provider = provider
-        self.hf_token = hf_token
-        self.hf_base_url = hf_base_url
-        
-        # Initialize hyperbolic client
-        self.hyperbolic_client = InferenceClient(
-            provider=self.provider,
-        )
+#     def _call_hf_endpoint(self, formatted_messages, stop_sequences=None, **kwargs):
+#         """Call the Hugging Face OpenAI-compatible endpoint"""
 
-        assert not self.hf_base_url.endswith("/v1/"), "Enter your base url without '/v1/' suffix."
-
-        # Initialize HF OpenAI-compatible client if token is provided
-        self.hf_client = None
-        from openai import OpenAI
-        self.hf_client = OpenAI(
-            base_url=self.hf_base_url + "/v1/",
-            api_key=self.hf_token
-        )
+#         # Extract parameters with defaults
+#         max_tokens = kwargs.get("max_new_tokens", 4096)
+#         temperature = kwargs.get("temperature", 0.7)
+#         top_p = kwargs.get("top_p", 0.9)
+#         stream = kwargs.get("stream", False)
         
-    def __call__(
-        self, 
-        messages: List[Dict[str, Any]], 
-        stop_sequences: Optional[List[str]] = None, 
-        **kwargs
-    ) -> ChatMessage:
-        """Convert a list of messages to an API request with fallback mechanism"""
+#         completion = self.hf_client.chat.completions.create(
+#             model="tgi",  # Model name for the endpoint
+#             messages=formatted_messages,
+#             max_tokens=max_tokens,
+#             temperature=temperature,
+#             top_p=top_p,
+#             stream=stream,
+#             stop=stop_sequences
+#         )
         
-        # Format messages once for both APIs
-        formatted_messages = self._format_messages(messages)
-        
-        # First try the HF endpoint if available - THIS ALWAYS FAILS SO SKIPPING
-        try:
-            completion = self._call_hf_endpoint(
-                formatted_messages, 
-                stop_sequences, 
-                **kwargs
-            )
-            return ChatMessage(role=MessageRole.ASSISTANT, content=completion)
-        except Exception as e:
-            print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
-            # Continue to fallback
-        
-        # Fallback to hyperbolic
-        try:
-            return self._call_hyperbolic(formatted_messages, stop_sequences, **kwargs)
-        except Exception as e:
-            raise Exception(f"Both endpoints failed. Last error: {e}")
+#         if stream:
+#             # For streaming responses, return a generator
+#             def stream_generator():
+#                 for chunk in completion:
+#                     yield chunk.choices[0].delta.content or ""
+#             return stream_generator()
+#         else:
+#             # For non-streaming, return the full text
+#             return completion.choices[0].message.content
     
-    def _format_messages(self, messages: List[Dict[str, Any]]):
-        """Format messages for API requests - works for both endpoints"""
+#     def _call_hyperbolic(self, formatted_messages, stop_sequences=None, **kwargs):
+#         """Call the hyperbolic API"""
         
-        formatted_messages = []
+#         completion = self.hyperbolic_client.chat.completions.create(
+#             model=self.model_path,
+#             messages=formatted_messages,
+#             max_tokens=kwargs.get("max_new_tokens", 4096),
+#             temperature=kwargs.get("temperature", 0.7),
+#             top_p=kwargs.get("top_p", 0.9),
+#             stop=stop_sequences
+#         )
         
-        for msg in messages:
-            role = msg["role"]
-            content = []
-            
-            if isinstance(msg["content"], list):
-                for item in msg["content"]:
-                    if item["type"] == "text":
-                        content.append({"type": "text", "text": item["text"]})
-                    elif item["type"] == "image":
-                        # # Handle image path or direct image object
-                        # if isinstance(item["image"], str):
-                        #     # Image is a path
-                        #     with open(item["image"], "rb") as image_file:
-                        #         base64_image = base64.b64encode(image_file.read()).decode("utf-8")
-                        # else:
-                        #     # Image is a PIL image or similar object
-                        #     img_byte_arr = BytesIO()
-                        #     base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
-
-                        # content.append({
-                        #     "type": "image_url",
-                        #     "image_url": {
-                        #         "url": f"data:image/png;base64,{base64_image}"
-                        #     }
-                        # })
-                        pass
-            else:
-                # Plain text message
-                content = [{"type": "text", "text": msg["content"]}]
-            
-            formatted_messages.append({"role": role, "content": content})
+#         # Extract the response text
+#         output_text = completion.choices[0].message.content
         
-        return formatted_messages
-
-    def _call_hf_endpoint(self, formatted_messages, stop_sequences=None, **kwargs):
-        """Call the Hugging Face OpenAI-compatible endpoint"""
-
-        # Extract parameters with defaults
-        max_tokens = kwargs.get("max_new_tokens", 4096)
-        temperature = kwargs.get("temperature", 0.7)
-        top_p = kwargs.get("top_p", 0.9)
-        stream = kwargs.get("stream", False)
-        
-        completion = self.hf_client.chat.completions.create(
-            model="tgi",  # Model name for the endpoint
-            messages=formatted_messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            stream=stream,
-            stop=stop_sequences
-        )
-        
-        if stream:
-            # For streaming responses, return a generator
-            def stream_generator():
-                for chunk in completion:
-                    yield chunk.choices[0].delta.content or ""
-            return stream_generator()
-        else:
-            # For non-streaming, return the full text
-            return completion.choices[0].message.content
+#         return ChatMessage(role=MessageRole.ASSISTANT, content=output_text)
     
-    def _call_hyperbolic(self, formatted_messages, stop_sequences=None, **kwargs):
-        """Call the hyperbolic API"""
-        
-        completion = self.hyperbolic_client.chat.completions.create(
-            model=self.model_path,
-            messages=formatted_messages,
-            max_tokens=kwargs.get("max_new_tokens", 4096),
-            temperature=kwargs.get("temperature", 0.7),
-            top_p=kwargs.get("top_p", 0.9),
-            stop=stop_sequences
-        )
-        
-        # Extract the response text
-        output_text = completion.choices[0].message.content
-        
-        return ChatMessage(role=MessageRole.ASSISTANT, content=output_text)
+#     def to_dict(self) -> Dict[str, Any]:
+#         """Convert the model to a dictionary"""
+#         return {
+#             "class": self.__class__.__name__,
+#             "model_path": self.model_path,
+#             "provider": self.provider,
+#             "hf_base_url": self.hf_base_url,
+#             # We don't save the API keys for security reasons
+#         }
     
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert the model to a dictionary"""
-        return {
-            "class": self.__class__.__name__,
-            "model_path": self.model_path,
-            "provider": self.provider,
-            "hf_base_url": self.hf_base_url,
-            # We don't save the API keys for security reasons
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "QwenVLAPIModel":
-        """Create a model from a dictionary"""
-        return cls(
-            model_path=data.get("model_path", "Qwen/Qwen2.5-VL-72B-Instruct"),
-            provider=data.get("provider", "hyperbolic"),
-            hf_base_url=data.get("hf_base_url", "https://s41ydkv0iyjeokyj.us-east-1.aws.endpoints.huggingface.cloud"),
-        )
+#     @classmethod
+#     def from_dict(cls, data: Dict[str, Any]) -> "QwenVLAPIModel":
+#         """Create a model from a dictionary"""
+#         return cls(
+#             model_path=data.get("model_path", "Qwen/Qwen2.5-VL-72B-Instruct"),
+#             provider=data.get("provider", "hyperbolic"),
+#             hf_base_url=data.get("hf_base_url", "https://s41ydkv0iyjeokyj.us-east-1.aws.endpoints.huggingface.cloud"),
+#         )
