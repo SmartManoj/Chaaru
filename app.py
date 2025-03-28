@@ -135,7 +135,7 @@ custom_css = """
 """.replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
 
 footer_html="""
-<h3 style="text-align: center; margin-top:100px;"><i>Powered by open source:</i></h2>
+<h3 style="text-align: center; margin-top:50px;"><i>Powered by open source:</i></h2>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 <div class="logo-container">
     <a class="logo-item" href="https://github.com/huggingface/smolagents"><i class="fa fa-github"></i>smolagents</a>
@@ -552,8 +552,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
     #Storing session hash in a state variable
     session_hash_state = gr.State(None)
 
-    gr.HTML("""<h1 style="color:var(--color-accent);">Computer Agent - Input your task and run your personal assistant!<h1>
-<h5>Input your task in the left sidebar to see our agent get to work.</h5>""")
+    gr.HTML("""<h1 style="color:var(--color-accent);">Computer Agent - Input your task and run your personal assistant!<h1>""")
 
     with gr.Row():
         sandbox_html = gr.HTML(
@@ -603,17 +602,8 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
                 if not minimalist_mode:
                     return """
                         <style>
-                        :root {
-                            --body-background-fill: black!important;
-                            --body-text-color: #f59e0b!important;
-                            --block-text-color: #f59e0b!important;
-                            --color-accent: #00b8ff!important;
-                        }
                         .sandbox-frame {
                             display: block!important;
-                        }
-                        .body {
-                            color: #00b8ff!important;
                         }
 
                         .sandbox-iframe, .bsod-image {
