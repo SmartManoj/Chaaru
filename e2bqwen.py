@@ -101,12 +101,10 @@ class E2BVisionAgent(CodeAgent):
         max_steps: int = 200,
         verbosity_level: LogLevel = 2,
         planning_interval: int = 10,
-        log_file = None,
         **kwargs
     ):
         self.desktop = desktop
         self.data_dir = data_dir
-        self.log_path = log_file
         self.planning_interval = planning_interval
         # Initialize Desktop
         self.width, self.height = self.desktop.get_screen_size()
@@ -137,7 +135,6 @@ class E2BVisionAgent(CodeAgent):
         self.logger.log("Setting up agent tools...")
         self._setup_desktop_tools()
         self.step_callbacks.append(self.take_screenshot_callback)
-        self.final_answer_checks = [self.store_metadata_to_file]
 
     def _setup_desktop_tools(self):
         """Register all desktop tools"""
@@ -151,7 +148,7 @@ class E2BVisionAgent(CodeAgent):
             """
             self.desktop.move_mouse(x, y)
             self.desktop.left_click()
-            self.logger.log(self.log_path, f"Clicked at coordinates ({x}, {y})")
+            self.logger.log(f"Clicked at coordinates ({x}, {y})")
             return f"Clicked at coordinates ({x}, {y})"
 
         @tool
@@ -164,7 +161,7 @@ class E2BVisionAgent(CodeAgent):
             """
             self.desktop.move_mouse(x, y)
             self.desktop.right_click()
-            self.logger.log(self.log_path, f"Right-clicked at coordinates ({x}, {y})")
+            self.logger.log(f"Right-clicked at coordinates ({x}, {y})")
             return f"Right-clicked at coordinates ({x}, {y})"
 
         @tool
@@ -177,7 +174,7 @@ class E2BVisionAgent(CodeAgent):
             """
             self.desktop.move_mouse(x, y)
             self.desktop.double_click()
-            self.logger.log(self.log_path, f"Double-clicked at coordinates ({x}, {y})")
+            self.logger.log(f"Double-clicked at coordinates ({x}, {y})")
             return f"Double-clicked at coordinates ({x}, {y})"
 
         @tool
@@ -189,7 +186,7 @@ class E2BVisionAgent(CodeAgent):
                 y: The y coordinate (vertical position)
             """
             self.desktop.move_mouse(x, y)
-            self.logger.log(self.log_path, f"Moved mouse to coordinates ({x}, {y})")
+            self.logger.log(f"Moved mouse to coordinates ({x}, {y})")
             return f"Moved mouse to coordinates ({x}, {y})"
 
         @tool
@@ -201,7 +198,7 @@ class E2BVisionAgent(CodeAgent):
                 delay_in_ms: Delay between keystrokes in milliseconds
             """
             self.desktop.write(text, delay_in_ms=delay_in_ms)
-            self.logger.log(self.log_path, f"Typed text: '{text}'")
+            self.logger.log(f"Typed text: '{text}'")
             return f"Typed text: '{text}'"
 
         @tool
@@ -214,7 +211,7 @@ class E2BVisionAgent(CodeAgent):
             if key == "enter":
                 key = "Return"
             self.desktop.press(key)
-            self.logger.log(self.log_path, f"Pressed key: {key}")
+            self.logger.log(f"Pressed key: {key}")
             return f"Pressed key: {key}"
 
         @tool
@@ -224,7 +221,7 @@ class E2BVisionAgent(CodeAgent):
             Args:
             """
             self.desktop.press(["alt", "left"])
-            self.logger.log(self.log_path, "Went back one page")
+            self.logger.log("Went back one page")
             return "Went back one page"
 
         @tool
@@ -239,7 +236,7 @@ class E2BVisionAgent(CodeAgent):
             """
             self.desktop.drag([x1, y1], [x2, y2])
             message = f"Dragged and dropped from [{x1}, {y1}] to [{x2}, {y2}]"
-            self.logger.log(self.log_path, message)
+            self.logger.log(message)
             return message
 
         @tool
@@ -251,7 +248,7 @@ class E2BVisionAgent(CodeAgent):
                 amount: The amount to scroll. A good amount is 1 or 2.
             """
             self.desktop.scroll(direction=direction, amount=amount)
-            self.logger.log(self.log_path, f"Scrolled {direction} by {amount}")
+            self.logger.log(f"Scrolled {direction} by {amount}")
             return f"Scrolled {direction} by {amount}"
 
         @tool
@@ -262,7 +259,7 @@ class E2BVisionAgent(CodeAgent):
                 seconds: Number of seconds to wait, generally 3 is enough.
             """
             time.sleep(seconds)
-            self.logger.log(self.log_path, f"Waited for {seconds} seconds")
+            self.logger.log(f"Waited for {seconds} seconds")
             return f"Waited for {seconds} seconds"
 
         @tool
@@ -279,7 +276,7 @@ class E2BVisionAgent(CodeAgent):
             self.desktop.open(url)
             # Give it time to load
             time.sleep(2)
-            self.logger.log(self.log_path, f"Opening URL: {url}")
+            self.logger.log(f"Opening URL: {url}")
             return f"Opened URL: {url}"
 
 
@@ -297,22 +294,9 @@ class E2BVisionAgent(CodeAgent):
         self.tools["drag_and_drop"] = drag_and_drop
 
 
-    def store_metadata_to_file(self, final_answer, memory) -> None:
-        metadata_path = os.path.join(self.data_dir, "metadata.json")
-        output = {}
-        # THIS ERASES IMAGES FROM MEMORY, USE WITH CAUTION
-        for memory_step in self.memory.steps:
-            if getattr(memory_step, "observations_images", None):
-                memory_step.observations_images = None
-        a = open(metadata_path,"w")
-        a.write(json.dumps(self.write_memory_to_messages()))
-        a.close()
-        return True
-
-    
     def take_screenshot_callback(self, memory_step: ActionStep, agent=None) -> None:
         """Callback that takes a screenshot + memory snapshot after a step completes"""
-        self.logger.log(self.log_path, "Analyzing screen content...")
+        self.logger.log("Analyzing screen content...")
 
         current_step = memory_step.step_number
 
@@ -362,12 +346,12 @@ class QwenVLAPIModel(Model):
         self.model_id = model_id
         self.base_model = HfApiModel(
             model_id,
-            provider="nebius",
+            provider="hyperbolic",
             token=hf_token,
         )
         self.fallback_model = HfApiModel(
             model_id,
-            provider="hyperbolic",
+            provider="nebius",
             token=hf_token,
         )
         

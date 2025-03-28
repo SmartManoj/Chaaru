@@ -425,44 +425,51 @@ def generate_interaction_id(request):
     """Generate a unique ID combining session hash and timestamp"""
     return f"{request.session_hash}_{int(time.time())}"
 
-def save_final_status(folder, status, details = None):
-    a = open(os.path.join(folder,"status.json"),"w")
-    a.write(json.dumps({"status":status,"details":details}))
-    a.close()
 
-def get_log_file_path(session_hash):
-    """
-    Creates a log file path based on the session hash.
-    Makes sure the directory exists.
-    """
-    log_dir = os.path.join(TMP_DIR, session_hash)
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-    
-    return os.path.join(log_dir, 'console.log')
+def chat_message_to_json(obj):
+    """Custom JSON serializer for ChatMessage and related objects"""
+    if hasattr(obj, '__dict__'):
+        # Create a copy of the object's __dict__ to avoid modifying the original
+        result = obj.__dict__.copy()
+        
+        # Remove the 'raw' field which may contain non-serializable data
+        if 'raw' in result:
+            del result['raw']
+            
+        # Process the content or tool_calls if they exist
+        if 'content' in result and result['content'] is not None:
+            if hasattr(result['content'], '__dict__'):
+                result['content'] = chat_message_to_json(result['content'])
+        
+        if 'tool_calls' in result and result['tool_calls'] is not None:
+            result['tool_calls'] = [chat_message_to_json(tc) for tc in result['tool_calls']]
+            
+        return result
+    elif isinstance(obj, (list, tuple)):
+        return [chat_message_to_json(item) for item in obj]
+    else:
+        return obj
+
+
+def save_final_status(folder, status: str, memory, error_message = None) -> None:
+    metadata_path = os.path.join(folder, "metadata.json")
+    output = {}
+    # THIS ERASES IMAGES FROM MEMORY, USE WITH CAUTION
+    for memory_step in memory.steps:
+        if getattr(memory_step, "observations_images", None):
+            memory_step.observations_images = None
+    a = open(metadata_path,"w")
+    summary = memory.get_succinct_steps()
+    a.write(json.dumps({"status":status, "summary":summary, "error_message": error_message}, default=chat_message_to_json))
+    a.close()
 
 def initialize_session(interactive_mode, request: gr.Request):
     session_hash = request.session_hash
-    # Create session-specific log file
-    log_path = get_log_file_path(session_hash)
-    # Initialize log file if it doesn't exist
-    if not os.path.exists(log_path):
-        with open(log_path, 'w') as f:
-            f.write(f"Ready to go...\n")
     # Return HTML and session hash
     return update_html(interactive_mode, request), session_hash
 
 
-# Function to read log content that gets the path from session hash
-def update_terminal_from_session(session_hash):
-    if not session_hash:
-        return "Waiting for session..."
-    
-    log_path = get_log_file_path(session_hash)
-    return read_log_content(log_path)
-
-
-def create_agent(data_dir, desktop, log_file):
+def create_agent(data_dir, desktop):
     model = QwenVLAPIModel(
         model_id="Qwen/Qwen2.5-VL-72B-Instruct",
         hf_token = hf_token,
@@ -474,7 +481,6 @@ def create_agent(data_dir, desktop, log_file):
         max_steps=200,
         verbosity_level=2,
         planning_interval=10,
-        log_file = log_file
     )
 
 class EnrichedGradioUI(GradioUI):
@@ -497,10 +503,9 @@ class EnrichedGradioUI(GradioUI):
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
 
-        log_file = get_log_file_path(session_hash)
         
         if "agent" not in session_state:
-            session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop, log_file=log_file)
+            session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop)
         
         # Construct the full task with instructions
         full_task = task_input + dedent(f"""
@@ -517,31 +522,32 @@ class EnrichedGradioUI(GradioUI):
             We can only execute one action at a time. On each step, answer only a python blob with the action to perform
         """)
 
-        # try:
-        stored_messages.append(gr.ChatMessage(role="user", content=task_input))
-        yield stored_messages
-
-        for msg in stream_to_gradio(session_state["agent"], task=full_task, reset_agent_memory=False):
-            if hasattr(session_state["agent"], "last_screenshot") and msg.content == "-----": # Append the last screenshot before the end of step
-                stored_messages.append(gr.ChatMessage(
-                    role="assistant",
-                    content={"path": session_state["agent"].last_screenshot.to_string(), "mime_type": "image/png"},
-                ))
-            stored_messages.append(msg)
+        try:
+            stored_messages.append(gr.ChatMessage(role="user", content=task_input))
             yield stored_messages
 
-        yield stored_messages
+            for msg in stream_to_gradio(session_state["agent"], task=full_task, reset_agent_memory=False):
+                if hasattr(session_state["agent"], "last_screenshot") and msg.content == "-----": # Append the last screenshot before the end of step
+                    stored_messages.append(gr.ChatMessage(
+                        role="assistant",
+                        content={"path": session_state["agent"].last_screenshot.to_string(), "mime_type": "image/png"},
+                    ))
+                stored_messages.append(msg)
+                yield stored_messages
 
-        # TODO: uncomment below after testing
-        #     save_final_status(data_dir, "completed", details = str(session_state["agent"].memory.get_succinct_steps()))
-        # except Exception as e:
-        #     error_message=f"Error in interaction: {str(e)}"
-        #     stored_messages.append(gr.ChatMessage(role="assistant", content=error_message))
-        #     yield stored_messages
-        #     save_final_status(data_dir, "failed", details = str(error_message))
+            yield stored_messages
+            save_final_status(data_dir, "completed", memory = session_state["agent"].memory)
+    
+        # # TODO: uncomment below after testing
+        except Exception as e:
+            error_message=f"Error in interaction: {str(e)}"
+            stored_messages.append(gr.ChatMessage(role="assistant", content=error_message))
+            yield stored_messages
+            raise e
+            save_final_status(data_dir, "failed", summary={}, error_message=error_message)
 
-        # finally:
-        #     upload_to_hf_and_remove(data_dir)
+        finally:
+            upload_to_hf_and_remove(data_dir)
 
 theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue")
 
