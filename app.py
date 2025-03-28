@@ -147,6 +147,7 @@ sandbox_html_template = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&display=swap');
 </style>
+<h1 style="color:var(--color-accent);">Computer Agent - Input your task and run your personal assistant!<h1>
 <div class="sandbox-container">
     <div class="status-bar">
         <div class="status-indicator {status_class}"></div>
@@ -551,8 +552,6 @@ theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", s
 with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as demo:
     #Storing session hash in a state variable
     session_hash_state = gr.State(None)
-
-    gr.HTML("""<h1 style="color:var(--color-accent);">Computer Agent - Input your task and run your personal assistant!<h1>""")
 
     with gr.Row():
         sandbox_html = gr.HTML(
