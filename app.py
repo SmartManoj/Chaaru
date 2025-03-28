@@ -139,7 +139,7 @@ footer_html="""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 <div class="logo-container">
     <a class="logo-item" href="https://github.com/huggingface/smolagents"><i class="fa fa-github"></i>smolagents</a>
-    <a class="logo-item" href="https://huggingface.co/Qwen/Qwen2.5-VL-32B-Instruct"><i class="fa fa-github"></i>Qwen-VL</a>
+    <a class="logo-item" href="https://huggingface.co/Qwen/Qwen2-VL-72B-Instruct"><i class="fa fa-github"></i>Qwen2-VL-72B-Instruct</a>
     <a class="logo-item" href="https://github.com/e2b-dev/desktop"><i class="fa fa-github"></i>E2B Desktop</a>
 </div>
 """
