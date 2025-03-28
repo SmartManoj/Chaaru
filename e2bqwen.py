@@ -89,6 +89,16 @@ Use click to move through menus on the desktop and scroll for web and specific a
 REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
 """
 
+def draw_marker_on_image(image, click_coordinates):
+    x, y = click_coordinates
+    draw = ImageDraw.Draw(image)
+    cross_size, linewidth = 10, 3
+    # Draw red cross lines
+    draw.line((x - cross_size, y, x + cross_size, y), fill="red", width=linewidth)
+    draw.line((x, y - cross_size, x, y + cross_size), fill="red", width=linewidth)
+    # Add a circle around it for better visibility
+    draw.ellipse((x - cross_size * 2, y - cross_size * 2, x + cross_size * 2, y + cross_size * 2), outline="red", width=linewidth)
+
 class E2BVisionAgent(CodeAgent):
     """Agent for e2b desktop automation with Qwen2.5VL vision capabilities"""
     def __init__(
@@ -148,7 +158,8 @@ class E2BVisionAgent(CodeAgent):
             self.desktop.move_mouse(x, y)
             self.desktop.left_click()
             self.logger.log(f"Clicked at coordinates ({x}, {y})")
-            self.click_coordinates = [x, y]
+            self.memory.steps[-1].click_coordinates = [x, y]
+            print("FLAGG", self.memory.steps[-1])
             return f"Clicked at coordinates ({x}, {y})"
 
         @tool
@@ -162,7 +173,7 @@ class E2BVisionAgent(CodeAgent):
             self.desktop.move_mouse(x, y)
             self.desktop.right_click()
             self.logger.log(f"Right-clicked at coordinates ({x}, {y})")
-            self.click_coordinates = [x, y]
+            self.memory.steps[-1].click_coordinates = [x, y]
             return f"Right-clicked at coordinates ({x}, {y})"
 
         @tool
@@ -176,7 +187,7 @@ class E2BVisionAgent(CodeAgent):
             self.desktop.move_mouse(x, y)
             self.desktop.double_click()
             self.logger.log(f"Double-clicked at coordinates ({x}, {y})")
-            self.click_coordinates = [x, y]
+            self.memory.steps[-1].click_coordinates = [x, y]
             return f"Double-clicked at coordinates ({x}, {y})"
 
         @tool
@@ -304,17 +315,6 @@ class E2BVisionAgent(CodeAgent):
         screenshot_bytes = self.desktop.screenshot()
         image = Image.open(BytesIO(screenshot_bytes))
 
-        if getattr(self, "click_coordinates", None):
-            # If a click was performed in the last action, mark it on the image
-            x, y = self.click_coordinates
-            draw = ImageDraw.Draw(image)
-            cross_size, linewidth = 10, 3
-            # Draw red cross lines
-            draw.line((x - cross_size, y, x + cross_size, y), fill="red", width=linewidth)
-            draw.line((x, y - cross_size, x, y + cross_size), fill="red", width=linewidth)
-            # Add a circle around it for better visibility
-            draw.ellipse((x - cross_size * 2, y - cross_size * 2, x + cross_size * 2, y + cross_size * 2), outline="red", width=linewidth)
-
         # Create a filename with step number
         screenshot_path = os.path.join(self.data_dir, f"step_{current_step:03d}.png")
         image.save(screenshot_path)
@@ -329,13 +329,21 @@ class E2BVisionAgent(CodeAgent):
                 and previous_memory_step.step_number <= current_step - 2
             ):
                 previous_memory_step.observations_images = None
+            if (
+                isinstance(previous_memory_step, ActionStep)
+                and previous_memory_step.step_number  == current_step - 1
+                and hasattr(memory_step, "click_coordinates")
+            ):
+                print("Drawing cross on previous step image")
+                draw_marker_on_image(previous_memory_step.observations_images[0], memory_step.click_coordinates)
+
+        if hasattr(memory_step, "click_coordinates"):
+            draw_marker_on_image(image, memory_step.click_coordinates)
 
         # Add to the current memory step
         memory_step.observations_images = [image.copy()]
 
         # memory_step.observations_images = [screenshot_path] # IF YOU USE THIS INSTEAD OF ABOVE, LAUNCHING A SECOND TASK BREAKS
-
-        self.click_coordinates = None
 
 
     def close(self):
@@ -358,8 +366,7 @@ class QwenVLAPIModel(Model):
         super().__init__()
         self.model_id = model_id
         self.base_model = HfApiModel(
-            model_id,
-            provider="hyperbolic",
+            model_id="https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud",
             token=hf_token,
         )
         self.fallback_model = HfApiModel(

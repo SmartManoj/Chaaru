@@ -392,7 +392,6 @@ def get_or_create_sandbox(session_hash):
         'created_at': current_time,
         'last_accessed': current_time
     }
-    
     return desktop
 
 def update_html(interactive_mode: bool, request: gr.Request):
