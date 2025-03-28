@@ -376,7 +376,7 @@ class QwenVLAPIModel(Model):
         )
         self.fallback_model = HfApiModel(
             model_id,
-            provider="nebius",
+            provider="hyperbolic",
             token=hf_token,
         )
         
@@ -388,13 +388,15 @@ class QwenVLAPIModel(Model):
     ) -> ChatMessage:
         
         try:
-            return self.base_model(messages, stop_sequences, **kwargs)
+            message = self.base_model(messages, stop_sequences, **kwargs)
+            return message
         except Exception as e:
             print(f"Base model failed with error: {e}. Calling fallback model.")
                 
         # Continue to fallback
         try:
-            return self.fallback_model(messages, stop_sequences, **kwargs)
+            message = self.fallback_model(messages, stop_sequences, **kwargs)
+            return message
         except Exception as e:
             raise Exception(f"Both endpoints failed. Last error: {e}")
 

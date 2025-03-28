@@ -82,7 +82,7 @@ custom_css = """
 .status-text {
     font-size: 16px;
     font-weight: bold;
-    padding: 0 10px;
+    padding-left: 8px;
     text-shadow: none;
 }
 
@@ -139,7 +139,7 @@ footer_html="""
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 <div class="logo-container">
     <a class="logo-item" href="https://github.com/huggingface/smolagents"><i class="fa fa-github"></i>smolagents</a>
-    <a class="logo-item" href="https://huggingface.co/Qwen/Qwen2-VL-72B-Instruct"><i class="fa fa-github"></i>Qwen2-VL-72B-Instruct</a>
+    <a class="logo-item" href="https://huggingface.co/Qwen/Qwen2-VL-72B-Instruct"><i class="fa fa-github"></i>Qwen2-VL-72B</a>
     <a class="logo-item" href="https://github.com/e2b-dev/desktop"><i class="fa fa-github"></i>E2B Desktop</a>
 </div>
 """
@@ -533,7 +533,7 @@ class EnrichedGradioUI(GradioUI):
 theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue")
 
 # Create a Gradio app with Blocks
-with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as demo:
+with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=False) as demo:
     #Storing session hash in a state variable
     session_hash_state = gr.State(None)
 
@@ -602,7 +602,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
 
                         .status-bar {
                             position: absolute;
-                            bottom: 86px;
+                            bottom: 88px;
                             left: 355px;
                         }
                         .status-text {
@@ -643,7 +643,6 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
             "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/smolagents/mascot_smol.png",
         ),
         resizable=True,
-        scale=1,
     )
 
     agent_ui = EnrichedGradioUI(CodeAgent(tools=[], model=None, name="ok", description="ok"))
