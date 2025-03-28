@@ -128,23 +128,24 @@ final_answer("Done")
 ```<end_code>
 </task_resolution_example>
 
-<guidelines>
-Always wait for appropriate loading times
+<click_guidelines>
+Look at elements on the screen to determine what to click or interact with.
+Use precise coordinates for mouse movements and clicks. When clicking an element, ALWAYS CLICK THE MIDDLE of that element, not UNDER OR ABOVE! Else you risk to miss it.
+Sometimes you may have missed a click, so never assume that you're on the right page, always make sure that your previous action worked. In the screenshot you can see if the mouse is out of the clickable area. Pay special attention to this.
+Remember the tools that you have as those can save you time, for example open_url to enter a website rather than searching for the browser in the OS.
+Whenever you click, MAKE SURE to click in the middle of the button, text, link or any other clickable element. Not under, not on the side. IN THE MIDDLE. In menus it is always better to click in the middle of the text rather than in the tiny icon. Calculate extremelly well the coordinates. A mistake here can make the full task fail.
+</click_guidelines>
+
+<general_guidelines>
+You can wait for appropriate loading times using the wait() tool. But don't wait forever, sometimes you've just misclicked and the process didn't launch.
 Use precise coordinates based on the current screenshot
-Execute one action at a time: don't try to pack several clicks in one action.
+Execute one action at a time: don't try to pack a click and typing in one action.
 On each step, look at the last screenshot and action to validate if previous steps worked and decide the next action. If you repeated an action already without effect, it means that this action is useless: don't repeat it and try something else.
 Use click to move through menus on the desktop and scroll for web and specific applications.
-When clicking an element, always make sure to click THE MIDDLE of that element! Else you risk to miss it.
 Always analyze the latest screenshot carefully before performing actions. Make sure to:
-1. Look at elements on the screen to determine what to click or interact with
-2. Use precise coordinates for mouse movements and clicks
-3. You can wait for page loads or animations to complete using the wait() tool
-4. Sometimes you may have missed a click, so never assume that you're on the right page, always make sure that your previous action worked. In the screenshot you can see if the mouse is out of the clickable area. Pay special attention to this.
-- Remember the tools that you have as those can save you time, for example open_url to enter a website rather than searching for the browser in the OS.
-- Whenever you click, MAKE SURE to click in the middle of the button, text, link or any other clickable element. Not under, not on the side. IN THE MIDDLE. In menus it is always better to click in the middle of the text rather than in the tiny icon. Calculate extremelly well the coordinates. A mistake here can make the full task fail.
-- To navigate the desktop you should open menus and click. Menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
-- Always analyze the latest screenshot carefully before performing actions.
-</guidelines>
+To navigate the desktop you should open menus and click. Menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
+Always analyze the latest screenshot carefully before performing actions.
+</general_guidelines>
 """
 
 def draw_marker_on_image(image, click_coordinates):
