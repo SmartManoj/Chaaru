@@ -451,17 +451,11 @@ def chat_message_to_json(obj):
         return obj
 
 
-def save_final_status(folder, status: str, memory, error_message = None) -> None:
+def save_final_status(folder, status: str, summary, error_message = None) -> None:
     metadata_path = os.path.join(folder, "metadata.json")
-    output = {}
-    # THIS ERASES IMAGES FROM MEMORY, USE WITH CAUTION
-    for memory_step in memory.steps:
-        if getattr(memory_step, "observations_images", None):
-            memory_step.observations_images = None
-    a = open(metadata_path,"w")
-    summary = memory.get_succinct_steps()
-    a.write(json.dumps({"status":status, "summary":summary, "error_message": error_message}, default=chat_message_to_json))
-    a.close()
+    output_file = open(metadata_path,"w")
+    output_file.write(json.dumps({"status":status, "summary":summary, "error_message": error_message}, default=chat_message_to_json))
+    output_file.close()
 
 def initialize_session(interactive_mode, request: gr.Request):
     session_hash = request.session_hash
@@ -504,8 +498,11 @@ class EnrichedGradioUI(GradioUI):
             os.makedirs(data_dir)
 
         
-        if "agent" not in session_state:
+        if "agent" in session_state:
+            session_state["agent"].data_dir = data_dir # Update data dir to new interaction
+        else:
             session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop)
+        
         
         # Construct the full task with instructions
         full_task = task_input + dedent(f"""
@@ -536,7 +533,13 @@ class EnrichedGradioUI(GradioUI):
                 yield stored_messages
 
             yield stored_messages
-            save_final_status(data_dir, "completed", memory = session_state["agent"].memory)
+            # THIS ERASES IMAGES FROM MEMORY, USE WITH CAUTION
+            memory = session_state["agent"].memory
+            for memory_step in memory.steps:
+                if getattr(memory_step, "observations_images", None):
+                    memory_step.observations_images = None
+            summary = memory.get_succinct_steps()
+            save_final_status(data_dir, "completed", summary = summary)
     
         # # TODO: uncomment below after testing
         except Exception as e:
@@ -544,7 +547,7 @@ class EnrichedGradioUI(GradioUI):
             stored_messages.append(gr.ChatMessage(role="assistant", content=error_message))
             yield stored_messages
             raise e
-            save_final_status(data_dir, "failed", summary={}, error_message=error_message)
+            save_final_status(data_dir, "failed", summary=[], error_message=error_message)
 
         finally:
             upload_to_hf_and_remove(data_dir)
@@ -708,13 +711,11 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js, fill_width=True) as de
         fn=clear_and_set_view_only,
         inputs=[task_input], 
         outputs=[results_output, sandbox_html, results_container]
-    )
-    view_only_event.then(agent_ui.interact_with_agent, [task_input, stored_messages, session_state, session_hash_state], [chatbot_display]).then(
+    ).then(agent_ui.interact_with_agent, [task_input, stored_messages, session_state, session_hash_state], [chatbot_display]).then(
         fn=set_interactive,
         inputs=[],
         outputs=sandbox_html
     )
-
 
     demo.load(
         fn=initialize_session,
