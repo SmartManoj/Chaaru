@@ -147,8 +147,8 @@ sandbox_html_template = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&display=swap');
 </style>
-<h1 style="color:var(--color-accent);">Computer Agent - Input your task and run your personal assistant!<h1>
-<div class="sandbox-container">
+<h1 style="color:var(--color-accent);margin:0;">Computer Agent - Input your task and run your personal assistant!<h1>
+<div class="sandbox-container" style="margin:0;">
     <div class="status-bar">
         <div class="status-indicator {status_class}"></div>
         <div class="status-text">{status_text}</div>
