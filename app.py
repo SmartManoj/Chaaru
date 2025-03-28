@@ -568,7 +568,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
                     "Check the commuting time between Bern and Zurich on Google maps",
                     "Write 'Hello World' in a text editor",
                     "Search a flight Paris - Berlin for tomorrow",
-                    "Could you head to Fontainebleau (France) in Google Maps, zoom in on the castle, then find, just south of the castle a lake, then in the middle of this lake a polygonal shape: how many sides does it have?",
+                    "Could you head to Fontainebleau (France) in Google Maps, and get me the name of the pond just south of the castle?",
                     "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background"
                 ],
                 inputs = task_input,
