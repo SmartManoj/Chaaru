@@ -28,10 +28,6 @@ if not os.path.exists(TMP_DIR):
 
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
 login(token=hf_token)
-model = QwenVLAPIModel(
-    hf_base_url="https://s41ydkv0iyjeokyj.us-east-1.aws.endpoints.huggingface.cloud",
-    hf_token = hf_token,
-)
 
 
 custom_css = """
@@ -467,12 +463,16 @@ def update_terminal_from_session(session_hash):
 
 
 def create_agent(data_dir, desktop, log_file):
+    model = QwenVLAPIModel(
+        model_id="Qwen/Qwen2.5-VL-72B-Instruct",
+        hf_token = hf_token,
+    )
     return E2BVisionAgent(
         model=model,
         data_dir=data_dir,
         desktop=desktop,
         max_steps=200,
-        verbosity_level=LogLevel.INFO,
+        verbosity_level=2,
         planning_interval=10,
         log_file = log_file
     )

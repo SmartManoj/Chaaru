@@ -97,7 +97,7 @@ class E2BVisionAgent(CodeAgent):
         desktop: Sandbox,
         tools: List[tool] = None,
         max_steps: int = 200,
-        verbosity_level: LogLevel = 4,
+        verbosity_level: LogLevel = 2,
         planning_interval: int = 10,
         log_file = None,
         **kwargs
@@ -352,21 +352,19 @@ class QwenVLAPIModel(Model):
     
     def __init__(
         self, 
-        hf_base_url,
-        model_path: str = "Qwen/Qwen2.5-VL-72B-Instruct",
-        provider: str = "hyperbolic",
+        model_id: str = "Qwen/Qwen2.5-VL-72B-Instruct",
         hf_token: str = None,
     ):
         super().__init__()
-        self.model_id = model_path
-        self.hf_base_url = hf_base_url
-        self.dedicated_endpoint_model = HfApiModel(
-            hf_base_url,
-            token=hf_token
+        self.model_id = model_id
+        self.base_model = HfApiModel(
+            model_id,
+            provider="nebius",
+            token=hf_token,
         )
         self.fallback_model = HfApiModel(
-            model_path,
-            provider=provider,
+            model_id,
+            provider="hyperbolic",
             token=hf_token,
         )
         
@@ -378,9 +376,9 @@ class QwenVLAPIModel(Model):
     ) -> ChatMessage:
         
         try:
-            return self.dedicated_endpoint_model(messages, stop_sequences, **kwargs)
+            return self.base_model(messages, stop_sequences, **kwargs)
         except Exception as e:
-            print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
+            print(f"Base model failed with error: {e}. Calling fallback model.")
                 
         # Continue to fallback
         try:
