@@ -356,14 +356,6 @@ def cleanup_sandboxes():
 
 def get_or_create_sandbox(session_hash):
     current_time = time.time()
-    print("======")
-    print(":=======")
-    print("Session hash:", session_hash)
-    print("Sandboxes:", SANDBOXES.keys())
-    print("Session hash in SANDBOXES:", session_hash in SANDBOXES)
-    print("Session hash in SANDBOX_METADATA:", session_hash in SANDBOX_METADATA)
-    if session_hash in SANDBOX_METADATA:
-        print("Session not timeout:", current_time - SANDBOX_METADATA[session_hash]['created_at'] < SANDBOX_TIMEOUT)
 
     # Check if sandbox exists and is still valid
     if (session_hash in SANDBOXES and 
