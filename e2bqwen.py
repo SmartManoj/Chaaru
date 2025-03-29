@@ -443,11 +443,13 @@ class QwenVLAPIModel(Model):
         self.base_model = HfApiModel(
             model_id="https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud",
             token=hf_token,
+            max_tokens=4096,
         )
         self.fallback_model = HfApiModel(
             model_id,
             provider="hyperbolic",
             token=hf_token,
+            max_tokens=4096,
         )
         
     def __call__(
