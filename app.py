@@ -12,7 +12,7 @@ from e2b_desktop import Sandbox
 from smolagents import CodeAgent
 from smolagents.monitoring import LogLevel
 from smolagents.gradio_ui import GradioUI, stream_to_gradio
-
+from model_replay import FakeModelClass
 
 from e2bqwen import QwenVLAPIModel, E2BVisionAgent
 
@@ -28,7 +28,6 @@ if not os.path.exists(TMP_DIR):
 
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
 login(token=hf_token)
-
 
 custom_css = """
 .sandbox-container {
@@ -471,6 +470,7 @@ def create_agent(data_dir, desktop):
         planning_interval=10,
     )
 
+
 class EnrichedGradioUI(GradioUI):
     def log_user_message(self, text_input):
         import gradio as gr
@@ -480,7 +480,7 @@ class EnrichedGradioUI(GradioUI):
             gr.Button(interactive=False),
         )
 
-    def interact_with_agent(self, task_input, stored_messages, session_state, session_hash, request: gr.Request):
+    def interact_with_agent(self, task_input, stored_messages, session_state, session_hash, replay_log, request: gr.Request):
         import gradio as gr
 
         interaction_id = generate_interaction_id(request)
@@ -491,11 +491,14 @@ class EnrichedGradioUI(GradioUI):
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
 
-        
         if "agent" in session_state:
             session_state["agent"].data_dir = data_dir # Update data dir to new interaction
         else:
             session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop)
+
+        if replay_log is not None:
+            original_model = session_state["agent"].model
+            session_state["agent"].model = FakeModelReplayLog(replay_log)
         
         try:
             stored_messages.append(gr.ChatMessage(role="user", content=task_input))
@@ -528,6 +531,8 @@ class EnrichedGradioUI(GradioUI):
             save_final_status(data_dir, "failed", summary=[], error_message=error_message)
 
         finally:
+            if replay_log: # Replace the model with original model
+                session_state["agent"].model = original_model
             upload_to_hf_and_remove(data_dir)
 
 theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue")
@@ -571,13 +576,8 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
             session_state = gr.State({})
             stored_messages = gr.State([])
 
-            with gr.Group(visible=False) as results_container:
-                results_output = gr.Textbox(
-                    label="Results",
-                    interactive=False,
-                    elem_id="results-output"
-                )
 
+            replay_btn = gr.Button("Replay an agent run")
 
             minimalist_toggle = gr.Checkbox(label="Innie/Outie", value=False)
 
@@ -664,8 +664,8 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
 
     # Function to set view-only mode
     def clear_and_set_view_only(task_input, request: gr.Request):
-        # First clear the results, then set view-only mode
-        return "", update_html(False, request), gr.update(visible=False)
+        # set view-only mode
+        return update_html(False, request)
 
     def set_interactive(request: gr.Request):
         return update_html(True, request)
@@ -676,11 +676,29 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
     view_only_event = update_btn.click(
         fn=clear_and_set_view_only,
         inputs=[task_input], 
-        outputs=[results_output, sandbox_html, results_container]
-    ).then(agent_ui.interact_with_agent, [task_input, stored_messages, session_state, session_hash_state], [chatbot_display]).then(
+        outputs=[sandbox_html]
+    ).then(
+        agent_ui.interact_with_agent,
+        inputs=[task_input, stored_messages, session_state, session_hash_state, None],
+        outputs=[chatbot_display]
+    ).then(
         fn=set_interactive,
         inputs=[],
-        outputs=sandbox_html
+        outputs=[sandbox_html]
+    )
+
+    replay_btn.click(
+        fn=clear_and_set_view_only,
+        inputs=[task_input], 
+        outputs=[sandbox_html]
+    ).then(
+        agent_ui.interact_with_agent,
+        inputs=[task_input, stored_messages, session_state, session_hash_state, "udupp2fyavq_1743170323"],
+        outputs=[chatbot_display]
+    ).then(
+        fn=set_interactive,
+        inputs=[],
+        outputs=[sandbox_html]
     )
 
     demo.load(
