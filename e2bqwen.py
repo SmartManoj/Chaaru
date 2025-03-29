@@ -411,7 +411,7 @@ class E2BVisionAgent(CodeAgent):
                 and previous_memory_step.step_number <= current_step - 1
             ):
                 if previous_memory_step.tool_calls[0].arguments == memory_step.tool_calls[0].arguments:
-                    memory_steps.observations += "\nWARNING: You've executed the same action several times in a row. MAKE SURE TO NOT USELESSLY REPEAT ACTIONS."
+                    memory_step.observations += "\nWARNING: You've executed the same action several times in a row. MAKE SURE TO NOT USELESSLY REPEAT ACTIONS."
 
         # Add to the current memory step
         memory_step.observations_images = [image.copy()]
