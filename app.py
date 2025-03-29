@@ -355,6 +355,14 @@ def cleanup_sandboxes():
 
 def get_or_create_sandbox(session_hash):
     current_time = time.time()
+    print("======")
+    print(":=======")
+    print("Session hash:", session_hash)
+    print("Sandboxes:", SANDBOXES.keys())
+    print("Session hash in SANDBOXES:", session_hash in SANDBOXES)
+    print("Session hash in SANDBOX_METADATA:", session_hash in SANDBOX_METADATA)
+    if session_hash in SANDBOX_METADATA:
+        print("Session not timeout:", current_time - SANDBOX_METADATA[session_hash]['created_at'] < SANDBOX_TIMEOUT)
 
     # Check if sandbox exists and is still valid
     if (session_hash in SANDBOXES and 
@@ -553,7 +561,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
         )
         with gr.Sidebar(position="left"):
             task_input = gr.Textbox(
-                value="Find picture of cute puppies",
+                value="Download a picture of a cute puppy",
                 label="Enter your task below:",
                 elem_classes="primary-color-label"
             )
@@ -565,7 +573,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
                     "Check the commuting time between Bern and Zurich on Google maps",
                     "Write 'Hello World' in a text editor",
                     "Search a flight Paris - Berlin for tomorrow",
-                    "Could you head to Fontainebleau (France) in Google Maps then drag and drop to position the castle of Fontainebleau exactly in the center?",
+                    "Could you head to Fontainebleau (France) in Google Maps, and get me the name of the pond just south of the castle?",
                     "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background"
                 ],
                 inputs = task_input,
