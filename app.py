@@ -12,7 +12,7 @@ from e2b_desktop import Sandbox
 from smolagents import CodeAgent
 from smolagents.monitoring import LogLevel
 from smolagents.gradio_ui import GradioUI, stream_to_gradio
-from model_replay import FakeModelClass
+from model_replay import FakeModelReplayLog
 
 from e2bqwen import QwenVLAPIModel, E2BVisionAgent
 
@@ -488,7 +488,7 @@ class EnrichedGradioUI(GradioUI):
             gr.Button(interactive=False),
         )
 
-    def interact_with_agent(self, task_input, stored_messages, session_state, session_hash, replay_log, request: gr.Request):
+    def interact_with_agent(self, task_input, stored_messages, session_state, session_hash, request: gr.Request):
         import gradio as gr
 
         interaction_id = generate_interaction_id(request)
@@ -504,9 +504,10 @@ class EnrichedGradioUI(GradioUI):
         else:
             session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop)
 
-        if replay_log is not None:
+        if "replay_log" in session_state and session_state["replay_log"] is not None:
             original_model = session_state["agent"].model
-            session_state["agent"].model = FakeModelReplayLog(replay_log)
+            session_state["agent"].model = FakeModelReplayLog(session_state["replay_log"])
+
         
         try:
             stored_messages.append(gr.ChatMessage(role="user", content=task_input))
@@ -539,8 +540,9 @@ class EnrichedGradioUI(GradioUI):
             save_final_status(data_dir, "failed", summary=[], error_message=error_message)
 
         finally:
-            if replay_log: # Replace the model with original model
+            if "replay_log" in session_state and session_state["replay_log"] is not None: # Replace the model with original model
                 session_state["agent"].model = original_model
+                session_state["replay_log"] = None
             upload_to_hf_and_remove(data_dir)
 
 theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue")
@@ -573,7 +575,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
                     "Check the commuting time between Bern and Zurich on Google maps",
                     "Write 'Hello World' in a text editor",
                     "Search a flight Paris - Berlin for tomorrow",
-                    "Could you head to Fontainebleau (France) in Google Maps, and get me the name of the pond just south of the castle?",
+                    "Search for Château de Fontainebleau in Google Maps",
                     "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background"
                 ],
                 inputs = task_input,
@@ -685,9 +687,10 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
         fn=clear_and_set_view_only,
         inputs=[task_input], 
         outputs=[sandbox_html]
-    ).then(
+    )
+    view_only_event.then(
         agent_ui.interact_with_agent,
-        inputs=[task_input, stored_messages, session_state, session_hash_state, None],
+        inputs=[task_input, stored_messages, session_state, session_hash_state],
         outputs=[chatbot_display]
     ).then(
         fn=set_interactive,
@@ -695,13 +698,19 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
         outputs=[sandbox_html]
     )
 
+    def set_logs_source(session_state):
+        session_state["replay_log"] = "udupp2fyavq_1743170323"
+
     replay_btn.click(
         fn=clear_and_set_view_only,
         inputs=[task_input], 
         outputs=[sandbox_html]
     ).then(
+        set_logs_source,
+        inputs=[session_state]
+    ).then(
         agent_ui.interact_with_agent,
-        inputs=[task_input, stored_messages, session_state, session_hash_state, "udupp2fyavq_1743170323"],
+        inputs=[task_input, stored_messages, session_state, session_hash_state],
         outputs=[chatbot_display]
     ).then(
         fn=set_interactive,

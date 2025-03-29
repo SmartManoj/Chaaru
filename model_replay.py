@@ -1,7 +1,11 @@
 from smolagents.models import Model, ChatMessage, Tool, MessageRole
-from time import time
+from time import sleep
+from typing import List, Dict, Optional
+from huggingface_hub import hf_hub_download
+import json
 
-class FakeModelClass(Model):
+
+class FakeModelReplayLog(Model):
     """A model class that returns pre-recorded responses from a log file.
     
     This class is useful for testing and debugging purposes, as it doesn't make
@@ -19,7 +23,7 @@ class FakeModelClass(Model):
         **kwargs
     ):
         super().__init__(**kwargs)
-        self.dataset_name = "smolagents/computer-agent-logs",
+        self.dataset_name = "smolagents/computer-agent-logs"
         self.log_folder = log_folder
         self.call_counter = 0
         self.model_outputs = self._load_model_outputs()
@@ -40,9 +44,8 @@ class FakeModelClass(Model):
         # Extract only the model_output from each step in tool_calls
         model_outputs = []
         
-        for step in log_data.get("tool_calls", []):
-            if "model_output_message" in step:
-                model_outputs.append(step["model_output_message"])
+        for step in log_data["summary"][1:]:
+            model_outputs.append(step["model_output_message"]["content"])
 
         print(f"Loaded {len(model_outputs)} model outputs from log file")
         return model_outputs
@@ -67,7 +70,7 @@ class FakeModelClass(Model):
         Returns:
             ChatMessage: The next pre-recorded response.
         """
-        time.sleep(1.0)
+        sleep(1.0)
 
         # Get the next model output
         if self.call_counter < len(self.model_outputs):

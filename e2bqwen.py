@@ -5,6 +5,7 @@ from io import BytesIO
 from textwrap import dedent
 from typing import Any, Dict, List, Optional, Tuple
 import json
+import unicodedata
 
 # HF API params
 from huggingface_hub import InferenceClient
@@ -260,6 +261,9 @@ class E2BVisionAgent(CodeAgent):
             self.logger.log(f"Moved mouse to coordinates ({x}, {y})")
             return f"Moved mouse to coordinates ({x}, {y})"
 
+        def normalize_text(text):
+            return ''.join(c for c in unicodedata.normalize('NFD', text) if not unicodedata.combining(c))
+
         @tool
         def type_text(text: str, delay_in_ms: int = 75) -> str:
             """
@@ -268,9 +272,10 @@ class E2BVisionAgent(CodeAgent):
                 text: The text to type
                 delay_in_ms: Delay between keystrokes in milliseconds
             """
-            self.desktop.write(text, delay_in_ms=delay_in_ms)
-            self.logger.log(f"Typed text: '{text}'")
-            return f"Typed text: '{text}'"
+            clean_text = normalize_text(text)
+            self.desktop.write(clean_text, delay_in_ms=delay_in_ms)
+            self.logger.log(f"Typed text: '{clean_text}'")
+            return f"Typed text: '{clean_text}'"
 
         @tool
         def press_key(key: str) -> str:
@@ -309,10 +314,12 @@ class E2BVisionAgent(CodeAgent):
             return message
 
         @tool
-        def scroll(direction: str = "down", amount: int = 1) -> str:
+        def scroll(x: int, y: int, direction: str = "down", amount: int = 1) -> str:
             """
             Uses scroll button: this could scroll the page or zoom, depending on the app. DO NOT use scroll to move through linux desktop menus.
             Args:
+                x: The x coordinate (horizontal position) of the element to scroll/zoom
+                y: The y coordinate (vertical position) of the element to scroll/zoom
                 direction: The direction to scroll ("up" or "down"), defaults to "down"
                 amount: The amount to scroll. A good amount is 1 or 2.
             """
