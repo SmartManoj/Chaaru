@@ -408,7 +408,7 @@ class E2BVisionAgent(CodeAgent):
 
             if (
                 isinstance(previous_memory_step, ActionStep)
-                and previous_memory_step.step_number <= current_step - 1
+                and previous_memory_step.step_number == current_step - 1
             ):
                 if previous_memory_step.tool_calls[0].arguments == memory_step.tool_calls[0].arguments:
                     memory_step.observations += "\nWARNING: You've executed the same action several times in a row. MAKE SURE TO NOT USELESSLY REPEAT ACTIONS."
