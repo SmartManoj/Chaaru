@@ -576,6 +576,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
                     "Write 'Hello World' in a text editor",
                     "Search a flight Paris - Berlin for tomorrow",
                     "Search for Château de Fontainebleau in Google Maps",
+                    "What is the picture that appeared on the very first version of the english Wikipedia page for the Palace of Fontainebleau?",
                     "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background"
                 ],
                 inputs = task_input,
