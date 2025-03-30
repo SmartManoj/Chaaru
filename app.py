@@ -568,7 +568,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
                 elem_classes="primary-color-label"
             )
 
-            update_btn = gr.Button("Let's go!", variant="primary")
+            run_btn = gr.Button("Let's go!", variant="primary")
 
             gr.Examples(
                 examples=[
@@ -646,6 +646,8 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
                 label="Header"
             )
 
+    stop_btn = gr.Button("Stop the agent!")
+
     chatbot_display = gr.Chatbot(
         label="Agent's execution logs",
         type="messages",
@@ -684,12 +686,11 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
     is_interactive = gr.Checkbox(value=True, visible=False)
 
     # Chain the events
-    view_only_event = update_btn.click(
+    run_event = run_btn.click(
         fn=clear_and_set_view_only,
         inputs=[task_input], 
         outputs=[sandbox_html]
-    )
-    view_only_event.then(
+    ).then(
         agent_ui.interact_with_agent,
         inputs=[task_input, stored_messages, session_state, session_hash_state],
         outputs=[chatbot_display]
@@ -698,6 +699,8 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
         inputs=[],
         outputs=[sandbox_html]
     )
+
+    stop_btn.click(fn=None, inputs=None, outputs=None, cancels=[run_event])
 
     def set_logs_source(session_state):
         session_state["replay_log"] = "udupp2fyavq_1743170323"
