@@ -356,6 +356,24 @@ class E2BVisionAgent(CodeAgent):
             self.logger.log(f"Opening URL: {url}")
             return f"Opened URL: {url}"
 
+        @tool
+        def find_on_page_ctrl_f(search_string: str) -> str:
+            """
+            Scroll the viewport to the first occurrence of the search string. This is equivalent to Ctrl+F.
+            Args:
+                search_string: The string to search for on the page.
+            """
+            self.desktop.press(["ctrl", "f"])
+            time.sleep(0.3)
+            clean_text = normalize_text(search_string)
+            self.desktop.write(clean_text, delay_in_ms=75)
+            time.sleep(0.3)
+            self.desktop.press("enter")
+            time.sleep(0.3)
+            self.desktop.press("esc")
+            output_message = f"Scrolled to the first occurrence of '{clean_text}'"
+            self.logger.log(output_message)
+            return output_message
 
         # Register the tools
         self.tools["click"] = click
@@ -369,6 +387,7 @@ class E2BVisionAgent(CodeAgent):
         self.tools["open_url"] = open_url
         self.tools["go_back"] = go_back
         self.tools["drag_and_drop"] = drag_and_drop
+        self.tools["find_on_page_ctrl_f"] = find_on_page_ctrl_f
 
 
     def take_screenshot_callback(self, memory_step: ActionStep, agent=None) -> None:

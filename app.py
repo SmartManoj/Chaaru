@@ -585,6 +585,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
                 examples=[
                     "Check the commuting time between Bern and Zurich on Google maps",
                     "Write 'Hello World' in a text editor",
+                    "When was Temple Grandin introduced to the American Academy of Arts and Sciences, according to Wikipedia?",
                     "Search a flight Rome - Berlin for tomorrow",
                     "What' s the name of the pond just south of Château de Fontainebleau in Google maps?",
                     "Go generate a picture of the Golden Gate bridge on a FLUX1.dev space",
@@ -657,7 +658,6 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
                 label="Header"
             )
 
-    stop_btn = gr.Button("Stop the agent!", variant="stop")
 
     chatbot_display = gr.Chatbot(
         elem_id="chatbot",
@@ -671,6 +671,8 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
     )
 
     agent_ui = EnrichedGradioUI(CodeAgent(tools=[], model=None, name="ok", description="ok"))
+
+    stop_btn = gr.Button("Stop the agent!", variant="huggingface")
 
     def read_log_content(log_file, tail=4):
         """Read the contents of a log file for a specific session"""
@@ -696,7 +698,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
         return update_html(True, request)
 
     def reactivate_stop_btn():
-        return gr.Button("Stop the agent!", variant="stop")
+        return gr.Button("Stop the agent!", variant="huggingface")
 
     is_interactive = gr.Checkbox(value=True, visible=False)
 
@@ -718,8 +720,11 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
     )
 
     def interrupt_agent(session_state):
-        session_state["agent"].interrupt()
-        return gr.Button("Stopping agent... (could take time)", variant="secondary")
+        if not session_state["agent"].interrupt_switch:
+            session_state["agent"].interrupt()
+            return gr.Button("Stopping agent... (could take time)", variant="secondary")
+        else:
+            return gr.Button("Stop the agent!", variant="huggingface")
 
     stop_btn.click(fn=interrupt_agent, inputs=[session_state], outputs=[stop_btn])
 
