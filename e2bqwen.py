@@ -47,7 +47,7 @@ On top of performing computations in the Python code snippets that you create, y
     Returns an output of type: {{tool.output_type}}
 {%- endfor %}
 
-The desktop has a resolution of <<resolution_x>>x<<resolution_y>>, take it into account to decide clicking coordinates.
+The desktop has a resolution of <<resolution_x>>x<<resolution_y>> pixels, take it into account to decide clicking coordinates.
 If you clicked somewhere in the previous action, a red crosshair will appear at the exact location of the previous click.
 The image might have change since then but the cross stays at the previous click. If your click seems to have changed nothing, check that this location is exactly where you intended to click. Otherwise correct the click coordinates.
 </tools>
@@ -146,6 +146,7 @@ Use click to move through menus on the desktop and scroll for web and specific a
 Always analyze the latest screenshot carefully before performing actions. Make sure to:
 To navigate the desktop you should open menus and click. Menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
 Always analyze the latest screenshot carefully before performing actions.
+The desktop has a resolution of <<resolution_x>>x<<resolution_y>> pixels.
 </general_guidelines>
 """
 
@@ -377,7 +378,7 @@ class E2BVisionAgent(CodeAgent):
         current_step = memory_step.step_number
 
         time.sleep(2.0)  # Let things happen on the desktop
-        screenshot_bytes = self.desktop.screenshot()
+        screenshot_bytes = self.desktop.screenshot(format="bytes")
         image = Image.open(BytesIO(screenshot_bytes))
 
         if getattr(self, "click_coordinates", None):

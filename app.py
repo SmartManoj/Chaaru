@@ -657,7 +657,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
                 label="Header"
             )
 
-    stop_btn = gr.Button("Stop the agent!")
+    stop_btn = gr.Button("Stop the agent!", variant="stop")
 
     chatbot_display = gr.Chatbot(
         elem_id="chatbot",
@@ -695,6 +695,9 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
     def set_interactive(request: gr.Request):
         return update_html(True, request)
 
+    def reactivate_stop_btn():
+        return gr.Button("Stop the agent!", variant="stop")
+
     is_interactive = gr.Checkbox(value=True, visible=False)
 
     # Chain the events
@@ -708,14 +711,17 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
         outputs=[chatbot_display]
     ).then(
         fn=set_interactive,
-        inputs=[],
         outputs=[sandbox_html]
+    ).then(
+        fn=reactivate_stop_btn,
+        outputs=[stop_btn]
     )
 
     def interrupt_agent(session_state):
         session_state["agent"].interrupt()
+        return gr.Button("Stopping agent... (could take time)", variant="secondary")
 
-    stop_btn.click(fn=interrupt_agent, inputs=[session_state], cancels=[run_event])
+    stop_btn.click(fn=interrupt_agent, inputs=[session_state], outputs=[stop_btn])
 
     def set_logs_source(session_state):
         session_state["replay_log"] = "udupp2fyavq_1743170323"
