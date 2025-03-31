@@ -111,6 +111,15 @@ custom_css = """
     100% { background-color: rgba(46, 204, 113, 1); }  /* Green at full opacity */
 }
 
+#chatbot {
+    height:800px;
+    flex-grow: 1; 
+    overflow:visible!important;
+}
+#chatbot .role {
+    max-with:95%
+}
+
 .logo-container {
     display: flex;
     flex-direction: column;
@@ -649,6 +658,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
     stop_btn = gr.Button("Stop the agent!")
 
     chatbot_display = gr.Chatbot(
+        elem_id="chatbot",
         label="Agent's execution logs",
         type="messages",
         avatar_images=(
