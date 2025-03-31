@@ -139,7 +139,7 @@ Whenever you click, MAKE SURE to click in the middle of the button, text, link o
 
 <general_guidelines>
 You can wait for appropriate loading times using the wait() tool. But don't wait forever, sometimes you've just misclicked and the process didn't launch.
-Use precise coordinates based on the current screenshot
+Use precise coordinates based on the current screenshot. Don't do hypothesis or guessing: USE TRUE COORDINATES.
 Execute one action at a time: don't try to pack a click and typing in one action.
 On each step, look at the last screenshot and action to validate if previous steps worked and decide the next action. If you repeated an action already without effect, it means that this action is useless: don't repeat it and try something else.
 Use click to move through menus on the desktop and scroll for web and specific applications.
@@ -447,7 +447,7 @@ class QwenVLAPIModel(Model):
         )
         self.fallback_model = HfApiModel(
             model_id,
-            provider="hyperbolic",
+            provider="nebius",
             token=hf_token,
             max_tokens=4096,
         )

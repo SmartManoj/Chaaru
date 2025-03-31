@@ -563,7 +563,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
         )
         with gr.Sidebar(position="left"):
             task_input = gr.Textbox(
-                value="Download a picture of a cute puppy",
+                value="Download a picture of a cute puppy from Google",
                 label="Enter your task below:",
                 elem_classes="primary-color-label"
             )
