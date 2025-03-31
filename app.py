@@ -581,10 +581,10 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
                 examples=[
                     "Check the commuting time between Bern and Zurich on Google maps",
                     "Write 'Hello World' in a text editor",
-                    "Search a flight Paris - Berlin for tomorrow",
-                    "Search for Château de Fontainebleau in Google Maps",
-                    "What is the picture that appeared on the very first version (2004) of the english Wikipedia page for the Palace of Fontainebleau?",
-                    "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background"
+                    "Search a flight Rome - Berlin for tomorrow",
+                    "What' s the name of the pond just south of Château de Fontainebleau in Google maps?",
+                    "Go generate a picture of the Golden Gate bridge on a FLUX1.dev space",
+                    "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background",
                 ],
                 inputs = task_input,
                 label= "Example Tasks",
