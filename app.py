@@ -112,9 +112,7 @@ custom_css = """
 }
 
 #chatbot {
-    height:800px;
-    flex-grow: 1; 
-    overflow:visible!important;
+    height:1000px!important;
 }
 #chatbot .role {
     max-with:95%
