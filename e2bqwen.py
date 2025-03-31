@@ -291,7 +291,7 @@ class E2BVisionAgent(CodeAgent):
         @tool
         def go_back() -> str:
             """
-            Goes back to the previous page in the browser.
+            Goes back to the previous page in the browser. If using this tool doesn't work, just click the button directly.
             Args:
             """
             self.desktop.press(["alt", "left"])
