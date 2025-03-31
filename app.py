@@ -588,7 +588,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
             stored_messages = gr.State([])
 
 
-            replay_btn = gr.Button("Replay an agent run")
+            # replay_btn = gr.Button("Replay an agent run")
 
             minimalist_toggle = gr.Checkbox(label="Innie/Outie", value=False)
 
@@ -705,22 +705,22 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
     def set_logs_source(session_state):
         session_state["replay_log"] = "udupp2fyavq_1743170323"
 
-    replay_btn.click(
-        fn=clear_and_set_view_only,
-        inputs=[task_input], 
-        outputs=[sandbox_html]
-    ).then(
-        set_logs_source,
-        inputs=[session_state]
-    ).then(
-        agent_ui.interact_with_agent,
-        inputs=[task_input, stored_messages, session_state, session_hash_state],
-        outputs=[chatbot_display]
-    ).then(
-        fn=set_interactive,
-        inputs=[],
-        outputs=[sandbox_html]
-    )
+    # replay_btn.click(
+    #     fn=clear_and_set_view_only,
+    #     inputs=[task_input], 
+    #     outputs=[sandbox_html]
+    # ).then(
+    #     set_logs_source,
+    #     inputs=[session_state]
+    # ).then(
+    #     agent_ui.interact_with_agent,
+    #     inputs=[task_input, stored_messages, session_state, session_hash_state],
+    #     outputs=[chatbot_display]
+    # ).then(
+    #     fn=set_interactive,
+    #     inputs=[],
+    #     outputs=[sandbox_html]
+    # )
 
     demo.load(
         fn=initialize_session,
