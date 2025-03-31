@@ -113,10 +113,13 @@ custom_css = """
 
 #chatbot {
     height:1000px!important;
-    overflow:visible!important;
 }
 #chatbot .role {
     max-width:95%
+}
+
+#chatbot .bubble-wrap {
+    overflow-y: visible;
 }
 
 .logo-container {
