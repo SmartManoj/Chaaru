@@ -712,7 +712,10 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
         outputs=[sandbox_html]
     )
 
-    stop_btn.click(fn=None, inputs=None, outputs=None, cancels=[run_event])
+    def interrupt_agent(session_state):
+        session_state["agent"].interrupt()
+
+    stop_btn.click(fn=interrupt_agent, inputs=[session_state], cancels=[run_event])
 
     def set_logs_source(session_state):
         session_state["replay_log"] = "udupp2fyavq_1743170323"
