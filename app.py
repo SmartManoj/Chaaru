@@ -27,7 +27,7 @@ if not os.path.exists(TMP_DIR):
     os.makedirs(TMP_DIR)
 
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
-login(token=hf_token)
+# login(token=hf_token)
 
 custom_css = """
 .sandbox-container {
