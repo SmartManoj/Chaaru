@@ -525,7 +525,7 @@ class EnrichedGradioUI(GradioUI):
             yield stored_messages
 
             for msg in stream_to_gradio(session_state["agent"], task=task_input, reset_agent_memory=False):
-                if hasattr(session_state["agent"], "last_screenshot") and msg.content == "-----": # Append the last screenshot before the end of step
+                if hasattr(session_state["agent"], "last_marked_screenshot") and msg.content == "-----": # Append the last screenshot before the end of step
                     stored_messages.append(gr.ChatMessage(
                         role="assistant",
                         content={"path": session_state["agent"].last_marked_screenshot.to_string(), "mime_type": "image/png"},
