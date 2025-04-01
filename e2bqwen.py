@@ -228,6 +228,7 @@ class E2BVisionAgent(CodeAgent):
                 ),
             },
         )
+        assert system_prompt != self.prompt_templates["system_prompt"], "Populating prompt template failed"
         print("v3 PROMPT TEMPLATE:", self.prompt_templates["system_prompt"])
         return system_prompt
 
