@@ -548,14 +548,6 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
     #Storing session hash in a state variable
     session_hash_state = gr.State(None)
 
-    with Modal(visible=True) as modal:
-        gr.Markdown("""### Welcome to our Computer agent demo
-Welcome! In this app, you'll be able to interact with an agent powered by smolagents and Qwen-VL: type a task in the left sidebar, click the button, and see the agent trying to solve your task.
-
-_Please note that we store the tasks given to this agent. Do not put any confidential information!_
-
-_You can reach out at @hf.co to request deletion of information._
-""")
 
     with gr.Row():
         sandbox_html = gr.HTML(
@@ -567,6 +559,15 @@ _You can reach out at @hf.co to request deletion of information._
             label="Output"
         )
         with gr.Sidebar(position="left"):
+            with Modal(visible=True) as modal:
+                gr.Markdown("""### Welcome to smolagent's Computer agent demo 🖥️
+In this app, you'll be able to interact with an agent powered by [smolagents](https://github.com/huggingface/smolagents) and [Qwen-VL](https://huggingface.co/Qwen/Qwen2.5-VL-72B-Instruct).
+
+👉 Type a task in the left sidebar, click the button, and watch the agent solving your task. ✨
+
+_Please note that we store the tasks given to this agent. Do not put any confidential information!_
+_You can reach out at @hf.co to request deletion of information._
+""")
             task_input = gr.Textbox(
                 value="Download a picture of a cute puppy from Google",
                 label="Enter your task below:",
