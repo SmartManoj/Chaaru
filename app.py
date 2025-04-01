@@ -366,14 +366,6 @@ def cleanup_sandboxes():
 
 def get_or_create_sandbox(session_hash):
     current_time = time.time()
-    print("======")
-    print(":=======")
-    print("Session hash:", session_hash)
-    print("Sandboxes:", SANDBOXES.keys())
-    print("Session hash in SANDBOXES:", session_hash in SANDBOXES)
-    print("Session hash in SANDBOX_METADATA:", session_hash in SANDBOX_METADATA)
-    if session_hash in SANDBOX_METADATA:
-        print("Session not timeout:", current_time - SANDBOX_METADATA[session_hash]['created_at'] < SANDBOX_TIMEOUT)
 
     # Check if sandbox exists and is still valid
     if (session_hash in SANDBOXES and 
@@ -489,6 +481,11 @@ def create_agent(data_dir, desktop):
         planning_interval=10,
     )
 
+def get_agent_summary_erase_images(agent):
+    for memory_step in agent.memory.steps:
+        if getattr(memory_step, "observations_images", None):
+            memory_step.observations_images = None
+    return agent.memory.get_succinct_steps()
 
 class EnrichedGradioUI(GradioUI):
     def log_user_message(self, text_input):
@@ -514,11 +511,6 @@ class EnrichedGradioUI(GradioUI):
             session_state["agent"].data_dir = data_dir # Update data dir to new interaction
         else:
             session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop)
-
-        if "replay_log" in session_state and session_state["replay_log"] is not None:
-            original_model = session_state["agent"].model
-            session_state["agent"].model = FakeModelReplayLog(session_state["replay_log"])
-
         
         try:
             stored_messages.append(gr.ChatMessage(role="user", content=task_input))
@@ -533,27 +525,19 @@ class EnrichedGradioUI(GradioUI):
                 stored_messages.append(msg)
                 yield stored_messages
 
-            yield stored_messages
             # THIS ERASES IMAGES FROM MEMORY, USE WITH CAUTION
-            memory = session_state["agent"].memory
-            for memory_step in memory.steps:
-                if getattr(memory_step, "observations_images", None):
-                    memory_step.observations_images = None
-            summary = memory.get_succinct_steps()
+            summary = get_agent_summary_erase_images(session_state["agent"])
             save_final_status(data_dir, "completed", summary = summary)
+            yield stored_messages
     
-        # # TODO: uncomment below after testing
         except Exception as e:
             error_message=f"Error in interaction: {str(e)}"
             stored_messages.append(gr.ChatMessage(role="assistant", content=error_message))
+            summary = get_agent_summary_erase_images(session_state["agent"])
+            save_final_status(data_dir, "failed", summary=summary, error_message=error_message)
             yield stored_messages
             raise e
-            save_final_status(data_dir, "failed", summary=[], error_message=error_message)
-
         finally:
-            if "replay_log" in session_state and session_state["replay_log"] is not None: # Replace the model with original model
-                session_state["agent"].model = original_model
-                session_state["replay_log"] = None
             upload_to_hf_and_remove(data_dir)
 
 theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue")
