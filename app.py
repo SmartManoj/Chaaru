@@ -465,7 +465,7 @@ def chat_message_to_json(obj):
 
 def save_final_status(folder, status: str, summary, error_message = None) -> None:
     metadata_path = os.path.join(folder, "metadata.json")
-    output_file = open(metadata_path,"w")
+    output_file = open(metadata_path, "w")
     output_file.write(json.dumps({"status":status, "summary":summary, "error_message": error_message}, default=chat_message_to_json))
     output_file.close()
 

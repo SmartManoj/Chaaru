@@ -160,6 +160,15 @@ def draw_marker_on_image(image_copy, click_coordinates):
     draw.ellipse((x - cross_size * 2, y - cross_size * 2, x + cross_size * 2, y + cross_size * 2), outline="red", width=linewidth)
     return image_copy
 
+from jinja2 import StrictUndefined, Template
+
+
+def populate_template(template: str, variables: Dict[str, Any]) -> str:
+    compiled_template = Template(template, undefined=StrictUndefined)
+    return compiled_template.render(**variables)
+
+
+
 class E2BVisionAgent(CodeAgent):
     """Agent for e2b desktop automation with Qwen2.5VL vision capabilities"""
     def __init__(
@@ -194,7 +203,6 @@ class E2BVisionAgent(CodeAgent):
             **kwargs
         )
         self.prompt_templates["system_prompt"] = E2B_SYSTEM_PROMPT_TEMPLATE.replace("<<resolution_x>>", str(self.width)).replace("<<resolution_y>>", str(self.height))
-        print("PROMPT TEMPLATE:", self.prompt_templates["system_prompt"])
 
         # Add screen info to state
         self.state["screen_width"] = self.width
@@ -205,6 +213,23 @@ class E2BVisionAgent(CodeAgent):
         self.logger.log("Setting up agent tools...")
         self._setup_desktop_tools()
         self.step_callbacks.append(self.take_screenshot_callback)
+
+    def initialize_system_prompt(self) -> str:
+        print("v2 PROMPT TEMPLATE:", self.prompt_templates["system_prompt"])
+        system_prompt = populate_template(
+            self.prompt_templates["system_prompt"],
+            variables={
+                "tools": self.tools,
+                "managed_agents": self.managed_agents,
+                "authorized_imports": (
+                    "You can import from any package you want."
+                    if "*" in self.authorized_imports
+                    else str(self.authorized_imports)
+                ),
+            },
+        )
+        print("v3 PROMPT TEMPLATE:", self.prompt_templates["system_prompt"])
+        return system_prompt
 
     def _setup_desktop_tools(self):
         """Register all desktop tools"""
@@ -266,15 +291,14 @@ class E2BVisionAgent(CodeAgent):
             return ''.join(c for c in unicodedata.normalize('NFD', text) if not unicodedata.combining(c))
 
         @tool
-        def type_text(text: str, delay_in_ms: int = 75) -> str:
+        def type_text(text: str) -> str:
             """
             Types the specified text at the current cursor position.
             Args:
                 text: The text to type
-                delay_in_ms: Delay between keystrokes in milliseconds
             """
             clean_text = normalize_text(text)
-            self.desktop.write(clean_text, delay_in_ms=delay_in_ms)
+            self.desktop.write(clean_text, delay_in_ms=75)
             self.logger.log(f"Typed text: '{clean_text}'")
             return f"Typed text: '{clean_text}'"
 
@@ -426,8 +450,9 @@ class E2BVisionAgent(CodeAgent):
                 isinstance(previous_memory_step, ActionStep)
                 and previous_memory_step.step_number == current_step - 1
             ):
-                if previous_memory_step.tool_calls[0].arguments == memory_step.tool_calls[0].arguments:
-                    memory_step.observations += "\nWARNING: You've executed the same action several times in a row. MAKE SURE TO NOT UNNECESSARILY REPEAT ACTIONS."
+                if previous_memory_step.tool_calls and getattr(previous_memory_step.tool_calls[0], "arguments", None) and memory_step.tool_calls and getattr(memory_step.tool_calls[0], "arguments", None):
+                    if previous_memory_step.tool_calls[0].arguments == memory_step.tool_calls[0].arguments:
+                        memory_step.observations += "\nWARNING: You've executed the same action several times in a row. MAKE SURE TO NOT UNNECESSARILY REPEAT ACTIONS."
 
         # Add the marker-edited image to the current memory step
         memory_step.observations_images = [image_copy]
