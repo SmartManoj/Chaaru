@@ -497,7 +497,7 @@ class EnrichedGradioUI(GradioUI):
             gr.Button(interactive=False),
         )
 
-    def interact_with_agent(self, task_input, stored_messages, session_state, session_hash, request: gr.Request):
+    def interact_with_agent(self, task_input, stored_messages, session_state, session_hash, consent_storage, request: gr.Request):
         import gradio as gr
 
         interaction_id = generate_interaction_id(request)
@@ -527,7 +527,7 @@ class EnrichedGradioUI(GradioUI):
                 yield stored_messages
 
             # THIS ERASES IMAGES FROM AGENT MEMORY, USE WITH CAUTION
-            if session_state["consent_storage"]:
+            if consent_storage:
                 summary = get_agent_summary_erase_images(session_state["agent"])
                 save_final_status(data_dir, "completed", summary = summary)
             yield stored_messages
@@ -536,12 +536,12 @@ class EnrichedGradioUI(GradioUI):
             error_message=f"Error in interaction: {str(e)}"
             print(error_message)
             stored_messages.append(gr.ChatMessage(role="assistant", content="Run failed:\n" + error_message))
-            if session_state["consent_storage"]:
+            if consent_storage:
                 summary = get_agent_summary_erase_images(session_state["agent"])
                 save_final_status(data_dir, "failed", summary=summary, error_message=error_message)
             yield stored_messages
         finally:
-            if session_state["consent_storage"]:
+            if consent_storage:
                 upload_to_hf_and_remove(data_dir)
 
 theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue")
@@ -595,15 +595,11 @@ _If you do not consent to this collection, you can untick a box in the sidebar t
             )
 
             session_state = gr.State({})
-            session_state["consent_storage"] = True
             stored_messages = gr.State([])
 
             minimalist_toggle = gr.Checkbox(label="Innie/Outie", value=False)
 
-            def change_consent(session_state):
-                session_state["consent_storage"] = not session_state["consent_storage"]
-
-            gr.Checkbox("Store task and agent trace?").change(change_consent, inputs=session_state)
+            consent_storage = gr.Checkbox("Store task and agent trace?", value=True)
 
             def apply_theme(minimalist_mode: bool):
                 if not minimalist_mode:
@@ -710,7 +706,7 @@ _If you do not consent to this collection, you can untick a box in the sidebar t
         outputs=[sandbox_html]
     ).then(
         agent_ui.interact_with_agent,
-        inputs=[task_input, stored_messages, session_state, session_hash_state],
+        inputs=[task_input, stored_messages, session_state, session_hash_state, consent_storage],
         outputs=[chatbot_display]
     ).then(
         fn=set_interactive,
