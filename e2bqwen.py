@@ -138,27 +138,27 @@ Whenever you click, MAKE SURE to click in the middle of the button, text, link o
 </click_guidelines>
 
 <general_guidelines>
+Always analyze the latest screenshot carefully before performing actions.
 You can wait for appropriate loading times using the wait() tool. But don't wait forever, sometimes you've just misclicked and the process didn't launch.
-Use precise coordinates based on the current screenshot. Don't do hypothesis or guessing: USE TRUE COORDINATES.
+Use precise coordinates based on the current screenshot. The desktop has a resolution of <<resolution_x>>x<<resolution_y>> pixels: NEVER USE HYPOTHETIC COORDINATES, USE TRUE COORDINATES that you can see from the screenshot.
 Execute one action at a time: don't try to pack a click and typing in one action.
 On each step, look at the last screenshot and action to validate if previous steps worked and decide the next action. If you repeated an action already without effect, it means that this action is useless: don't repeat it and try something else.
 Use click to move through menus on the desktop and scroll for web and specific applications.
 Always analyze the latest screenshot carefully before performing actions. Make sure to:
 To navigate the desktop you should open menus and click. Menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
-Always analyze the latest screenshot carefully before performing actions.
-The desktop has a resolution of <<resolution_x>>x<<resolution_y>> pixels.
 </general_guidelines>
 """
 
-def draw_marker_on_image(image, click_coordinates):
+def draw_marker_on_image(image_copy, click_coordinates):
     x, y = click_coordinates
-    draw = ImageDraw.Draw(image)
+    draw = ImageDraw.Draw(image_copy)
     cross_size, linewidth = 10, 3
     # Draw red cross lines
     draw.line((x - cross_size, y, x + cross_size, y), fill="red", width=linewidth)
     draw.line((x, y - cross_size, x, y + cross_size), fill="red", width=linewidth)
     # Add a circle around it for better visibility
     draw.ellipse((x - cross_size * 2, y - cross_size * 2, x + cross_size * 2, y + cross_size * 2), outline="red", width=linewidth)
+    return image_copy
 
 class E2BVisionAgent(CodeAgent):
     """Agent for e2b desktop automation with Qwen2.5VL vision capabilities"""
@@ -194,7 +194,7 @@ class E2BVisionAgent(CodeAgent):
             **kwargs
         )
         self.prompt_templates["system_prompt"] = E2B_SYSTEM_PROMPT_TEMPLATE.replace("<<resolution_x>>", str(self.width)).replace("<<resolution_y>>", str(self.height))
-
+        print("PROMPT TEMPLATE:", self.prompt_templates["system_prompt"])
 
         # Add screen info to state
         self.state["screen_width"] = self.width
@@ -396,25 +396,21 @@ class E2BVisionAgent(CodeAgent):
 
         current_step = memory_step.step_number
 
-        time.sleep(2.0)  # Let things happen on the desktop
+        time.sleep(3.0)  # Let things happen on the desktop
         screenshot_bytes = self.desktop.screenshot(format="bytes")
         image = Image.open(BytesIO(screenshot_bytes))
-
-        if getattr(self, "click_coordinates", None):
-            # If a click was performed in the last action, mark it on the image
-            x, y = self.click_coordinates
-            draw = ImageDraw.Draw(image)
-            cross_size, linewidth = 10, 3
-            # Draw red cross lines
-            draw.line((x - cross_size, y, x + cross_size, y), fill="red", width=linewidth)
-            draw.line((x, y - cross_size, x, y + cross_size), fill="red", width=linewidth)
-            # Add a circle around it for better visibility
-            draw.ellipse((x - cross_size * 2, y - cross_size * 2, x + cross_size * 2, y + cross_size * 2), outline="red", width=linewidth)
 
         # Create a filename with step number
         screenshot_path = os.path.join(self.data_dir, f"step_{current_step:03d}.png")
         image.save(screenshot_path)
-        self.last_screenshot = AgentImage(screenshot_path)
+
+        image_copy = image.copy()
+
+        if getattr(self, "click_coordinates", None):
+            print("DRAWING MARKER")
+            image_copy = draw_marker_on_image(image_copy, self.click_coordinates)
+
+        self.last_marked_screenshot = AgentImage(screenshot_path)
         print(f"Saved screenshot for step {current_step} to {screenshot_path}")
 
         for (
@@ -433,8 +429,8 @@ class E2BVisionAgent(CodeAgent):
                 if previous_memory_step.tool_calls[0].arguments == memory_step.tool_calls[0].arguments:
                     memory_step.observations += "\nWARNING: You've executed the same action several times in a row. MAKE SURE TO NOT UNNECESSARILY REPEAT ACTIONS."
 
-        # Add to the current memory step
-        memory_step.observations_images = [image.copy()]
+        # Add the marker-edited image to the current memory step
+        memory_step.observations_images = [image_copy]
 
         # memory_step.observations_images = [screenshot_path] # IF YOU USE THIS INSTEAD OF ABOVE, LAUNCHING A SECOND TASK BREAKS
 

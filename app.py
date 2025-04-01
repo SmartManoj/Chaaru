@@ -20,8 +20,8 @@ E2B_API_KEY = os.getenv("E2B_API_KEY")
 SANDBOXES = {}
 SANDBOX_METADATA = {}
 SANDBOX_TIMEOUT = 600
-WIDTH = 1280
-HEIGHT = 960
+WIDTH = 1024
+HEIGHT = 768
 TMP_DIR = './tmp/'
 if not os.path.exists(TMP_DIR):
     os.makedirs(TMP_DIR)
@@ -528,7 +528,7 @@ class EnrichedGradioUI(GradioUI):
                 if hasattr(session_state["agent"], "last_screenshot") and msg.content == "-----": # Append the last screenshot before the end of step
                     stored_messages.append(gr.ChatMessage(
                         role="assistant",
-                        content={"path": session_state["agent"].last_screenshot.to_string(), "mime_type": "image/png"},
+                        content={"path": session_state["agent"].last_marked_screenshot.to_string(), "mime_type": "image/png"},
                     ))
                 stored_messages.append(msg)
                 yield stored_messages
@@ -619,7 +619,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
                             left: 110px;
                         }
                         .sandbox-iframe {
-                            transform: scale(0.535);
+                            transform: scale(0.667);
                             /* transform: scale(0.59); */
                         }
 
