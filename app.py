@@ -600,10 +600,10 @@ _If you do not consent to this collection, you can untick a box in the sidebar t
 
             minimalist_toggle = gr.Checkbox(label="Innie/Outie", value=False)
 
-            def add_items(session_state):
+            def change_consent(session_state):
                 session_state["consent_storage"] = not session_state["consent_storage"]
 
-            gr.Button("Store task and agent trace?").click(add_items, session_state)
+            gr.Checkbox("Store task and agent trace?").change(change_consent, inputs=session_state)
 
             def apply_theme(minimalist_mode: bool):
                 if not minimalist_mode:
