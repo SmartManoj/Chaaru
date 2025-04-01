@@ -526,20 +526,23 @@ class EnrichedGradioUI(GradioUI):
                 stored_messages.append(msg)
                 yield stored_messages
 
-            # THIS ERASES IMAGES FROM MEMORY, USE WITH CAUTION
-            summary = get_agent_summary_erase_images(session_state["agent"])
-            save_final_status(data_dir, "completed", summary = summary)
+            # THIS ERASES IMAGES FROM AGENT MEMORY, USE WITH CAUTION
+            if session_state["consent_storage"]:
+                summary = get_agent_summary_erase_images(session_state["agent"])
+                save_final_status(data_dir, "completed", summary = summary)
             yield stored_messages
     
         except Exception as e:
             error_message=f"Error in interaction: {str(e)}"
             print(error_message)
             stored_messages.append(gr.ChatMessage(role="assistant", content="Run failed:\n" + error_message))
-            summary = get_agent_summary_erase_images(session_state["agent"])
-            save_final_status(data_dir, "failed", summary=summary, error_message=error_message)
+            if session_state["consent_storage"]:
+                summary = get_agent_summary_erase_images(session_state["agent"])
+                save_final_status(data_dir, "failed", summary=summary, error_message=error_message)
             yield stored_messages
         finally:
-            upload_to_hf_and_remove(data_dir)
+            if session_state["consent_storage"]:
+                upload_to_hf_and_remove(data_dir)
 
 theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue")
 
@@ -565,8 +568,8 @@ In this app, you'll be able to interact with an agent powered by [smolagents](ht
 
 👉 Type a task in the left sidebar, click the button, and watch the agent solving your task. ✨
 
-_Please note that we store the tasks given to this agent. Do not type any confidential information!_
-_You can reach out at @hf.co to request deletion of information._
+_Please note that we store the tasks given to this agent. **Do not type any confidential information!**_
+_If you do not consent to this collection, you can untick a box in the sidebar to disable task and trace storage._
 """)
             task_input = gr.Textbox(
                 value="Download a picture of a cute puppy from Google",
@@ -592,12 +595,15 @@ _You can reach out at @hf.co to request deletion of information._
             )
 
             session_state = gr.State({})
+            session_state["consent_storage"] = True
             stored_messages = gr.State([])
 
-
-            # replay_btn = gr.Button("Replay an agent run")
-
             minimalist_toggle = gr.Checkbox(label="Innie/Outie", value=False)
+
+            def add_items(session_state):
+                session_state["consent_storage"] = not session_state["consent_storage"]
+
+            gr.Button("Store task and agent trace?").click(add_items, session_state)
 
             def apply_theme(minimalist_mode: bool):
                 if not minimalist_mode:
