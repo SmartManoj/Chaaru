@@ -27,7 +27,7 @@ if not os.path.exists(TMP_DIR):
     os.makedirs(TMP_DIR)
 
 hf_token = os.getenv("HUGGINGFACE_API_KEY")
-# login(token=hf_token)
+login(token=hf_token)
 
 custom_css = """
 .sandbox-container {
@@ -532,11 +532,11 @@ class EnrichedGradioUI(GradioUI):
     
         except Exception as e:
             error_message=f"Error in interaction: {str(e)}"
-            stored_messages.append(gr.ChatMessage(role="assistant", content=error_message))
+            print(error_message)
+            stored_messages.append(gr.ChatMessage(role="assistant", content="Run failed:\n" + error_message))
             summary = get_agent_summary_erase_images(session_state["agent"])
             save_final_status(data_dir, "failed", summary=summary, error_message=error_message)
             yield stored_messages
-            raise e
         finally:
             upload_to_hf_and_remove(data_dir)
 
