@@ -565,7 +565,7 @@ In this app, you'll be able to interact with an agent powered by [smolagents](ht
 
 👉 Type a task in the left sidebar, click the button, and watch the agent solving your task. ✨
 
-_Please note that we store the tasks given to this agent. Do not put any confidential information!_
+_Please note that we store the tasks given to this agent. Do not type any confidential information!_
 _You can reach out at @hf.co to request deletion of information._
 """)
             task_input = gr.Textbox(
