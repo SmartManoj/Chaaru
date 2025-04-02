@@ -131,21 +131,21 @@ final_answer("Done")
 
 <click_guidelines>
 Look at elements on the screen to determine what to click or interact with.
-Use precise coordinates for mouse movements and clicks. When clicking an element, ALWAYS CLICK THE MIDDLE of that element, not UNDER OR ABOVE! Else you risk to miss it.
-Sometimes you may have missed a click, so never assume that you're on the right page, always make sure that your previous action worked. In the screenshot you can see if the mouse is out of the clickable area. Pay special attention to this.
-Remember the tools that you have as those can save you time, for example open_url to enter a website rather than searching for the browser in the OS.
+Use precise coordinates based on the current screenshot for mouse movements and clicks. When clicking an element, ALWAYS CLICK THE MIDDLE of that element, not UNDER OR ABOVE! Else you risk to miss it.
 Whenever you click, MAKE SURE to click in the middle of the button, text, link or any other clickable element. Not under, not on the side. IN THE MIDDLE. In menus it is always better to click in the middle of the text rather than in the tiny icon. Calculate extremelly well the coordinates. A mistake here can make the full task fail.
+The desktop has a resolution of <<resolution_x>>x<<resolution_y>> pixels: NEVER USE HYPOTHETIC COORDINATES, USE TRUE COORDINATES that you can see from the screenshot.
+Sometimes you may have missed a click, so never assume that you're on the right page, always make sure that your previous action worked. In the screenshot you can see if the mouse is out of the clickable area. Pay special attention to this.
 </click_guidelines>
 
 <general_guidelines>
 Always analyze the latest screenshot carefully before performing actions.
 You can wait for appropriate loading times using the wait() tool. But don't wait forever, sometimes you've just misclicked and the process didn't launch.
-Use precise coordinates based on the current screenshot. The desktop has a resolution of <<resolution_x>>x<<resolution_y>> pixels: NEVER USE HYPOTHETIC COORDINATES, USE TRUE COORDINATES that you can see from the screenshot.
 Execute one action at a time: don't try to pack a click and typing in one action.
 On each step, look at the last screenshot and action to validate if previous steps worked and decide the next action. If you repeated an action already without effect, it means that this action is useless: don't repeat it and try something else.
 Use click to move through menus on the desktop and scroll for web and specific applications.
 Always analyze the latest screenshot carefully before performing actions.
 Desktop menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
+Remember the tools that you have as those can save you time, for example open_url to enter a website rather than searching for the browser in the OS.
 </general_guidelines>
 """
 
