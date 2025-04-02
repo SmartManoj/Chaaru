@@ -31,6 +31,10 @@ hf_token = os.getenv("HUGGINGFACE_API_KEY")
 login(token=hf_token)
 
 custom_css = """
+.modal-container {
+    margin: var(--size-16) auto;
+}
+
 .sandbox-container {
     position: relative;
     width: 910px;
