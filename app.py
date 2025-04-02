@@ -572,7 +572,7 @@ In this app, you'll be able to interact with an agent powered by [smolagents](ht
 
 👉 Type a task in the left sidebar, click the button, and watch the agent solving your task. ✨
 
-_Please note that we store the task logs by default but you can uncheck this behavior on the task bar._
+_Please note that we store the task logs by default so **do not write any personal information**; you can uncheck the logs storing on the task bar._
 """)
             task_input = gr.Textbox(
                 value="Find me pictures of cute puppies",
