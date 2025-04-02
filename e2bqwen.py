@@ -35,7 +35,7 @@ Reflection: ...
 Action: ...
 Code:
 ```python
-click(250, 300)
+click(254, 308)
 ```<end_code>
 </action_process>
 
@@ -56,7 +56,7 @@ The image might have change since then but the cross stays at the previous click
 Always format your actions as Python code blocks, as shown below:
 Code:
 ```python
-click(250, 300)
+click(254, 308)
 ```<end_code>
 </code_format>
 
@@ -70,7 +70,7 @@ Reflection: I think that a notes application would fit in the Applications menu,
 Action: I'll click it, carefully clicking in the middle of the text 'Applications'/
 Code:
 ```python
-click(50, 10) 
+click(51, 8) 
 ```<end_code>
 
 Step 2:
