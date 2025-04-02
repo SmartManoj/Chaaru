@@ -32,7 +32,7 @@ login(token=hf_token)
 
 custom_css = """
 .modal-container {
-    margin: var(--size-16) auto;
+    margin: var(--size-16) auto!important;
 }
 
 .sandbox-container {
