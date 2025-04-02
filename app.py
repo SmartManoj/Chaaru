@@ -3,6 +3,7 @@ import os
 import json
 import shutil
 import traceback
+import uuid
 from textwrap import dedent
 import time
 from threading import Timer
@@ -368,72 +369,57 @@ def cleanup_sandboxes():
             except Exception as e:
                 print(f"Error cleaning up sandbox {session_id}: {str(e)}")
 
-
-def get_or_create_sandbox(session_hash):
+def get_or_create_sandbox(session_uuid):
     current_time = time.time()
 
-    # Check if sandbox exists and is still valid
-    if (session_hash in SANDBOXES and 
-        session_hash in SANDBOX_METADATA and
-        current_time - SANDBOX_METADATA[session_hash]['created_at'] < SANDBOX_TIMEOUT):
-        
-        # Update last accessed time
-        SANDBOX_METADATA[session_hash]['last_accessed'] = current_time
-        return SANDBOXES[session_hash]
-    
-    # Close existing sandbox if it exists but is too old
-    if session_hash in SANDBOXES:
+    if (session_uuid in SANDBOXES and 
+        session_uuid in SANDBOX_METADATA and
+        current_time - SANDBOX_METADATA[session_uuid]['created_at'] < SANDBOX_TIMEOUT):
+        print(f"Reusing Sandbox for  {session_uuid}")
+        SANDBOX_METADATA[session_uuid]['last_accessed'] = current_time
+        return SANDBOXES[session_uuid]
+
+    if session_uuid in SANDBOXES:
         try:
-            print(f"Closing expired sandbox for session {session_hash}")
-            SANDBOXES[session_hash].kill()
+            print(f"Closing expired sandbox for session {session_uuid}")
+            SANDBOXES[session_uuid].kill()
         except Exception as e:
             print(f"Error closing expired sandbox: {str(e)}")
-    
-    # Create new sandbox
-    print(f"Creating new sandbox for session {session_hash}")
+
+    print(f"Creating new sandbox for session {session_uuid}")
     desktop = Sandbox(api_key=E2B_API_KEY, resolution=(WIDTH, HEIGHT), dpi=96, timeout=SANDBOX_TIMEOUT)
     desktop.stream.start(require_auth=True)
     setup_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}' | sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
     desktop.commands.run(setup_cmd)
-    
-    # Store sandbox with metadata
-    SANDBOXES[session_hash] = desktop
-    SANDBOX_METADATA[session_hash] = {
+
+    SANDBOXES[session_uuid] = desktop
+    SANDBOX_METADATA[session_uuid] = {
         'created_at': current_time,
         'last_accessed': current_time
     }
     return desktop
 
-def update_html(interactive_mode: bool, request: gr.Request):
-    session_hash = request.session_hash
-    desktop = get_or_create_sandbox(session_hash)
+def update_html(interactive_mode: bool, session_uuid):
+    desktop = get_or_create_sandbox(session_uuid)
     auth_key = desktop.stream.get_auth_key()
-    
-    # Add view_only parameter based on interactive_mode
     base_url = desktop.stream.get_url(auth_key=auth_key)
     stream_url = base_url if interactive_mode else f"{base_url}&view_only=true"
     
-    # Set status indicator class and text
     status_class = "status-interactive" if interactive_mode else "status-view-only"
     status_text = "Interactive" if interactive_mode else "Agent running..."
-    
-    creation_time = SANDBOX_METADATA[session_hash]['created_at'] if session_hash in SANDBOX_METADATA else time.time()
+    creation_time = SANDBOX_METADATA[session_uuid]['created_at'] if session_uuid in SANDBOX_METADATA else time.time()
 
     sandbox_html_content = sandbox_html_template.format(
         stream_url=stream_url,
         status_class=status_class,
         status_text=status_text,
     )
-
-    # Add hidden field with creation time for JavaScript to use
     sandbox_html_content += f'<div id="sandbox-creation-time" style="display:none;" data-time="{creation_time}" data-timeout="{SANDBOX_TIMEOUT}"></div>'
-
     return sandbox_html_content
 
-def generate_interaction_id(request):
-    """Generate a unique ID combining session hash and timestamp"""
-    return f"{request.session_hash}_{int(time.time())}"
 
+def generate_interaction_id(session_uuid):
+    return f"{session_uuid}_{int(time.time())}"
 
 def chat_message_to_json(obj):
     """Custom JSON serializer for ChatMessage and related objects"""
@@ -466,10 +452,18 @@ def save_final_status(folder, status: str, summary, error_message = None) -> Non
     output_file.write(json.dumps({"status":status, "summary":summary, "error_message": error_message}, default=chat_message_to_json))
     output_file.close()
 
-def initialize_session(interactive_mode, request: gr.Request):
-    session_hash = request.session_hash
-    # Return HTML and session hash
-    return update_html(interactive_mode, request), session_hash
+def extract_browser_uuid(js_uuid):
+    print(f"[BROWSER] Got browser UUID from JS: {js_uuid}")
+    return js_uuid
+
+def initialize_session(request: gr.Request, interactive_mode, browser_uuid):
+    if not browser_uuid:
+        new_uuid = str(uuid.uuid4())
+        print(f"[LOAD] No UUID from browser, generating: {new_uuid}")
+        return update_html(interactive_mode, new_uuid), new_uuid
+    else:
+        print(f"[LOAD] Got UUID from browser: {browser_uuid}")
+        return update_html(interactive_mode, browser_uuid), browser_uuid
 
 
 def create_agent(data_dir, desktop):
@@ -501,22 +495,19 @@ class EnrichedGradioUI(GradioUI):
             gr.Button(interactive=False),
         )
 
-    def interact_with_agent(self, task_input, stored_messages, session_state, session_hash, consent_storage, request: gr.Request):
-        import gradio as gr
+    def interact_with_agent(self, task_input, stored_messages, session_state, session_uuid, consent_storage, request: gr.Request):
+        interaction_id = generate_interaction_id(session_uuid)
+        desktop = get_or_create_sandbox(session_uuid)
 
-        interaction_id = generate_interaction_id(request)
-        desktop = get_or_create_sandbox(session_hash)
-        
-        # Create data directory for this session
         data_dir = os.path.join(TMP_DIR, interaction_id)
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
 
         if "agent" in session_state:
-            session_state["agent"].data_dir = data_dir # Update data dir to new interaction
+            session_state["agent"].data_dir = data_dir
         else:
             session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop)
-        
+
         try:
             stored_messages.append(gr.ChatMessage(role="user", content=task_input))
             yield stored_messages
@@ -553,7 +544,8 @@ theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", s
 # Create a Gradio app with Blocks
 with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
     #Storing session hash in a state variable
-    session_hash_state = gr.State(None)
+    session_uuid_state = gr.State(None)
+
 
 
     with gr.Row():
@@ -690,12 +682,11 @@ _Please note that we store the task logs by default so **do not write any person
             return f"Guru meditation: {str(e)}"
 
     # Function to set view-only mode
-    def clear_and_set_view_only(task_input, request: gr.Request):
-        # set view-only mode
-        return update_html(False, request)
+    def clear_and_set_view_only(task_input, session_uuid):
+        return update_html(False, session_uuid)
 
-    def set_interactive(request: gr.Request):
-        return update_html(True, request)
+    def set_interactive(session_uuid):
+        return update_html(True, session_uuid)
 
     def reactivate_stop_btn():
         return gr.Button("Stop the agent!", variant="huggingface")
@@ -705,14 +696,15 @@ _Please note that we store the task logs by default so **do not write any person
     # Chain the events
     run_event = run_btn.click(
         fn=clear_and_set_view_only,
-        inputs=[task_input], 
+        inputs=[task_input, session_uuid_state], 
         outputs=[sandbox_html]
     ).then(
         agent_ui.interact_with_agent,
-        inputs=[task_input, stored_messages, session_state, session_hash_state, consent_storage],
+        inputs=[task_input, stored_messages, session_state, session_uuid_state, consent_storage],
         outputs=[chatbot_display]
     ).then(
         fn=set_interactive,
+        inputs=[session_uuid_state],
         outputs=[sandbox_html]
     ).then(
         fn=reactivate_stop_btn,
@@ -749,9 +741,13 @@ _Please note that we store the task logs by default so **do not write any person
     # )
 
     demo.load(
+        fn=lambda: True,  # dummy to trigger the load
+        outputs=[is_interactive],
+    ).then(
         fn=initialize_session,
+        js="() => localStorage.getItem('gradio-session-uuid') || (() => { const id = self.crypto.randomUUID(); localStorage.setItem('gradio-session-uuid', id); return id })()",
         inputs=[is_interactive],
-        outputs=[sandbox_html, session_hash_state],
+        outputs=[sandbox_html, session_uuid_state],
     )
 
 # Launch the app
