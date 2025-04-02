@@ -24,7 +24,7 @@ from PIL import ImageDraw
 
 E2B_SYSTEM_PROMPT_TEMPLATE = """You are a desktop automation assistant that can control a remote desktop environment.
 <action process>
-You willbe given a task to solve in several steps. At each step you will perform an action.
+You will be given a task to solve in several steps. At each step you will perform an action.
 After each action, you'll receive an updated screenshot. 
 Then you will proceed as follows, with these sections: don't skip any!
 
@@ -144,8 +144,8 @@ Use precise coordinates based on the current screenshot. The desktop has a resol
 Execute one action at a time: don't try to pack a click and typing in one action.
 On each step, look at the last screenshot and action to validate if previous steps worked and decide the next action. If you repeated an action already without effect, it means that this action is useless: don't repeat it and try something else.
 Use click to move through menus on the desktop and scroll for web and specific applications.
-Always analyze the latest screenshot carefully before performing actions. Make sure to:
-To navigate the desktop you should open menus and click. Menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
+Always analyze the latest screenshot carefully before performing actions.
+Desktop menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
 </general_guidelines>
 """
 
@@ -228,7 +228,7 @@ class E2BVisionAgent(CodeAgent):
             },
         )
         assert system_prompt != self.prompt_templates["system_prompt"], "Populating prompt template failed"
-        print("TRUE PROMPT:", system_prompt)
+        print("FINAL PROMPT:", system_prompt)
         return system_prompt
 
     def _setup_desktop_tools(self):
