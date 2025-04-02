@@ -215,7 +215,6 @@ class E2BVisionAgent(CodeAgent):
         self.step_callbacks.append(self.take_screenshot_callback)
 
     def initialize_system_prompt(self) -> str:
-        print("v2 PROMPT TEMPLATE:", self.prompt_templates["system_prompt"])
         system_prompt = populate_template(
             self.prompt_templates["system_prompt"],
             variables={
@@ -229,7 +228,7 @@ class E2BVisionAgent(CodeAgent):
             },
         )
         assert system_prompt != self.prompt_templates["system_prompt"], "Populating prompt template failed"
-        print("v3 PROMPT TEMPLATE:", self.prompt_templates["system_prompt"])
+        print("TRUE PROMPT:", system_prompt)
         return system_prompt
 
     def _setup_desktop_tools(self):
