@@ -10,7 +10,7 @@ from threading import Timer
 from huggingface_hub import upload_folder, login
 from e2b_desktop import Sandbox
 
-from smolagents import CodeAgent
+from smolagents import CodeAgent, OpenAIServerModel
 from smolagents.monitoring import LogLevel
 from smolagents.gradio_ui import GradioUI, stream_to_gradio
 from model_replay import FakeModelReplayLog
@@ -471,6 +471,10 @@ def create_agent(data_dir, desktop):
         model_id="Qwen/Qwen2.5-VL-72B-Instruct",
         hf_token = hf_token,
     )
+
+    model = OpenAIServerModel(
+        "gpt-4o",api_key=os.getenv("OPENAI_API_KEY")
+    )
     return E2BVisionAgent(
         model=model,
         data_dir=data_dir,
@@ -478,6 +482,7 @@ def create_agent(data_dir, desktop):
         max_steps=200,
         verbosity_level=2,
         planning_interval=10,
+        use_v1_prompt=True
     )
 
 def get_agent_summary_erase_images(agent):
@@ -581,7 +586,7 @@ _Please note that we store the task logs by default so **do not write any person
                     "When was Temple Grandin introduced to the American Academy of Arts and Sciences, according to Wikipedia?",
                     "Search a flight Rome - Berlin for tomorrow",
                     "What' s the name of the pond just south of Château de Fontainebleau in Google maps?",
-                    "Go generate a picture of the Golden Gate bridge on a FLUX1.dev space",
+                    "Go on the Hugging Face Hub, find the space for FLUX1.dev, then generate a picture of the Golden Gate bridge",
                     "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background",
                 ],
                 inputs = task_input,

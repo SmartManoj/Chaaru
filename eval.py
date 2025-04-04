@@ -12,10 +12,13 @@ from threading import Timer
 from e2b_desktop import Sandbox
 from huggingface_hub import get_token
 
-from smolagents import CodeAgent
+from smolagents import CodeAgent, OpenAIServerModel
 from smolagents.monitoring import LogLevel
 from e2bqwen import QwenVLAPIModel, E2BVisionAgent
 
+from dotenv import load_dotenv
+
+load_dotenv()
 # Environment variables and constants
 E2B_API_KEY = os.getenv("E2B_API_KEY")
 # Try to get token dynamically, fall back to environment variable
@@ -53,17 +56,21 @@ def get_git_hash():
     except:
         return "nogit"
 
-def create_agent(data_dir, desktop):
+def create_agent(data_dir, desktop, max_steps: int):
     """Create an agent with the E2B desktop sandbox"""
     model = QwenVLAPIModel(
         model_id="Qwen/Qwen2.5-VL-72B-Instruct",
         hf_token=HUGGINGFACE_API_KEY,
     )
+    # model = OpenAIServerModel(
+    #     model_id="gpt-4o",
+    #     api_key=os.getenv("OPENAI_API_KEY")
+    # )
     return E2BVisionAgent(
         model=model,
         data_dir=data_dir,
         desktop=desktop,
-        max_steps=200,
+        max_steps=max_steps,
         verbosity_level=2,
         planning_interval=10,
     )
@@ -109,7 +116,7 @@ def save_final_status(folder, status: str, summary, error_message=None) -> None:
             "error_message": error_message
         }, default=chat_message_to_json))
 
-def run_example_once(example_name, example_text, run_index, example_dir):
+def run_example_once(example_name, example_text, run_index, example_dir, max_steps):
     """Run a single example once and return the result"""
     run_dir = os.path.join(example_dir, f"run_{run_index}")
     os.makedirs(run_dir, exist_ok=True)
@@ -135,7 +142,7 @@ def run_example_once(example_name, example_text, run_index, example_dir):
         desktop.commands.run(setup_cmd)
         
         # Create and run the agent
-        agent = create_agent(data_dir=run_dir, desktop=desktop)
+        agent = create_agent(data_dir=run_dir, desktop=desktop, max_steps=max_steps)
         try:
             agent.run(task=example_text)
             summary = get_agent_summary_erase_images(agent)
@@ -163,7 +170,7 @@ def run_example_once(example_name, example_text, run_index, example_dir):
     
     return result
 
-def run_example(example_name, example_text, num_runs, example_dir):
+def run_example(example_name, example_text, num_runs, example_dir, max_steps):
     """Run a single example multiple times using threads for each run"""
     thread_safe_print(f"\nRunning example '{example_name}': '{example_text[:50]}...'")
     
@@ -171,7 +178,7 @@ def run_example(example_name, example_text, num_runs, example_dir):
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_runs) as executor:
         # Submit all runs to the executor
         future_to_run = {
-            executor.submit(run_example_once, example_name, example_text, j, example_dir): j 
+            executor.submit(run_example_once, example_name, example_text, j, example_dir, max_steps): j 
             for j in range(num_runs)
         }
         
@@ -191,7 +198,7 @@ def run_example(example_name, example_text, num_runs, example_dir):
     
     return results
 
-def run_evaluation(examples, num_runs, output_dir, max_parallel):
+def run_evaluation(examples, num_runs, output_dir, max_parallel, max_steps):
     """Run each example n times and save the results"""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     git_hash = get_git_hash()
@@ -218,7 +225,7 @@ def run_evaluation(examples, num_runs, output_dir, max_parallel):
         
         # Submit all examples to the executor
         future_to_example = {
-            executor.submit(run_example, example_name, example_text, num_runs, example_dirs[example_name]): example_name
+            executor.submit(run_example, example_name, example_text, num_runs, example_dirs[example_name], max_steps): example_name
             for example_name, example_text in examples.items()
         }
         
@@ -272,6 +279,7 @@ def main():
     parser.add_argument("--num-runs", type=int, default=3, help="Number of runs per example")
     parser.add_argument("--output-dir", type=str, default="./eval_results", help="Output directory for evaluation results")
     parser.add_argument("--max-parallel", type=int, default=2, help="Maximum number of examples to run in parallel")
+    parser.add_argument("--max-steps", type=int, default=200, help="Maximum number of steps in each run")
     args = parser.parse_args()
     
     # Examples from the original code
@@ -290,7 +298,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     
     # Run the evaluation
-    eval_dir = run_evaluation(examples, args.num_runs, args.output_dir, args.max_parallel)
+    eval_dir = run_evaluation(examples, args.num_runs, args.output_dir, args.max_parallel, args.max_steps)
 
 if __name__ == "__main__":
     main()

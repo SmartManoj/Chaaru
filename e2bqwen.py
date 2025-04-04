@@ -180,6 +180,7 @@ class E2BVisionAgent(CodeAgent):
         max_steps: int = 200,
         verbosity_level: LogLevel = 2,
         planning_interval: int = 10,
+        use_v1_prompt: bool = False,
         **kwargs
     ):
         self.desktop = desktop
@@ -193,6 +194,7 @@ class E2BVisionAgent(CodeAgent):
         os.makedirs(self.data_dir, exist_ok=True)
         print(f"Screenshots and steps will be saved to: {self.data_dir}")
 
+        self.use_v1_prompt = use_v1_prompt
         # Initialize base agent
         super().__init__(
             tools=tools or [],
@@ -208,28 +210,90 @@ class E2BVisionAgent(CodeAgent):
         self.state["screen_width"] = self.width
         self.state["screen_height"] = self.height
 
-
         # Add default tools
         self.logger.log("Setting up agent tools...")
         self._setup_desktop_tools()
         self.step_callbacks.append(self.take_screenshot_callback)
 
     def initialize_system_prompt(self) -> str:
-        system_prompt = populate_template(
-            self.prompt_templates["system_prompt"],
-            variables={
-                "tools": self.tools,
-                "managed_agents": self.managed_agents,
-                "authorized_imports": (
-                    "You can import from any package you want."
-                    if "*" in self.authorized_imports
-                    else str(self.authorized_imports)
-                ),
-            },
-        )
-        assert system_prompt != self.prompt_templates["system_prompt"], "Populating prompt template failed"
-        print("FINAL PROMPT:", system_prompt)
-        return system_prompt
+        if self.use_v1_prompt:
+            return """You are a desktop automation assistant that can control a remote desktop environment.
+You only have access to the following tools to interact with the desktop, no additional ones:
+- click(x, y): Performs a left-click at the specified coordinates
+- right_click(x, y): Performs a right-click at the specified coordinates
+- double_click(x, y): Performs a double-click at the specified coordinates
+- move_mouse(x, y): Moves the mouse cursor to the specified coordinates
+- type_text(text): Types the specified text at the current cursor position
+- press_key(key): Presses a keyboard key (e.g., "Return", "tab", "ctrl+c")
+- scroll(x, y, direction, amount): Scrolls a website in a browser or a document (direction can be "up" or "down", a common amount is 1 or 2 scroll("down",1) ). DO NOT use scroll to move through linux desktop menus. x, y, is the mouse position to scroll on.
+- wait(seconds): Waits for the specified number of seconds. Very useful in case the prior order is still executing (for example starting very heavy applications like browsers or office apps)
+- open_url(url): Directly opens a browser with the specified url, saves time compared to clicking in a browser and going through the initial setup wizard.
+- final_answer("YOUR FINAL ANSWER TEXT"): Announces that the task requested is completed and provides a final text
+The desktop has a resolution of {resolution_x}x{resolution_y}.
+IMPORTANT:
+- Remember the tools that you have as those can save you time, for example open_url to enter a website rather than searching for the browser in the OS.
+- Whenever you click, MAKE SURE to click in the middle of the button, text, link or any other clickable element. Not under, not on the side. IN THE MIDDLE. In menus it is always better to click in the middle of the text rather than in the tiny icon. Calculate extremelly well the coordinates. A mistake here can make the full task fail.
+- To navigate the desktop you should open menus and click. Menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
+- Always analyze the latest screenshot carefully before performing actions. If you clicked somewhere in the previous action and in the screenshot nothing happened, make sure the mouse is where it should be. Otherwise you can see that the coordinates were wrong.
+You must proceed step by step:
+1. Understand the task thoroughly
+2. Break down the task into logical steps
+3. For each step:
+a. Analyze the current screenshot to identify UI elements
+b. Plan the appropriate action with precise coordinates
+c. Execute ONE action at a time using the proper tool
+d. Wait for the action to complete before proceeding
+After each action, you'll receive an updated screenshot. Review it carefully before your next action.
+COMMAND FORMAT:
+Always format your actions as Python code blocks. For example:
+```python
+click(250, 300)
+```<end_code>
+TASK EXAMPLE:
+For a task like "Open a text editor and type 'Hello World'":
+1- First, analyze the screenshot to find the Applications menu and click on it being very precise, clicking in the middle of the text 'Applications':
+```python
+click(50, 10) 
+```<end_code>
+2- Remembering that menus are navigated through clicking, after analyzing the screenshot with the applications menu open we see that a notes application probably fits in the Accessories section (we see it is a section in the menu thanks to the tiny white triangle after the text accessories). We look for Accessories and click on it being very precise, clicking in the middle of the text 'Accessories'. DO NOT try to move through the menus with scroll, it won't work:
+```python
+click(76, 195) 
+```<end_code>
+3- Remembering that menus are navigated through clicking, after analyzing the screenshot with the submenu Accessories open, look for 'Text Editor' and click on it being very precise, clicking in the middle of the text 'Text Editor':
+```python
+click(241, 441) 
+```<end_code>
+4- Once Notepad is open, type the requested text:
+```python
+type_text("Hello World")
+```<end_code>
+5- Task is completed:
+```python
+final_answer("Done")
+```<end_code>
+Remember to:
+Always wait for appropriate loading times
+Use precise coordinates based on the current screenshot
+Execute one action at a time
+Verify the result before proceeding to the next step
+Use click to move through menus on the desktop and scroll for web and specific applications.
+REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
+""".format(resolution_x=self.width, resolution_y=self.height)
+        else:
+            system_prompt = populate_template(
+                self.prompt_templates["system_prompt"],
+                variables={
+                    "tools": self.tools,
+                    "managed_agents": self.managed_agents,
+                    "authorized_imports": (
+                        "You can import from any package you want."
+                        if "*" in self.authorized_imports
+                        else str(self.authorized_imports)
+                    ),
+                },
+            )
+            assert system_prompt != self.prompt_templates["system_prompt"], "Populating prompt template failed"
+            return system_prompt
 
     def _setup_desktop_tools(self):
         """Register all desktop tools"""
@@ -471,27 +535,81 @@ class E2BVisionAgent(CodeAgent):
             print("E2B sandbox terminated")
 
 
+# class QwenVLAPIModel(Model):
+#     """Model wrapper for Qwen2.5VL API with fallback mechanism"""
+    
+#     def __init__(
+#         self, 
+#         model_id: str = "Qwen/Qwen2.5-VL-72B-Instruct",
+#         hf_token: str = None,
+#     ):
+#         super().__init__()
+#         self.model_id = model_id
+#         self.base_model = HfApiModel(
+#             model_id="https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud",
+#             token=hf_token,
+#             max_tokens=4096,
+#         )
+#         self.fallback_model = HfApiModel(
+#             model_id,
+#             provider="nebius",
+#             token=hf_token,
+#             max_tokens=4096,
+#         )
+        
+#     def __call__(
+#         self, 
+#         messages: List[Dict[str, Any]], 
+#         stop_sequences: Optional[List[str]] = None, 
+#         **kwargs
+#     ) -> ChatMessage:
+        
+#         try:
+#             message = self.base_model(messages, stop_sequences, **kwargs)
+#             return message
+#         except Exception as e:
+#             print(f"Base model failed with error: {e}. Calling fallback model.")
+                
+#         # Continue to fallback
+#         try:
+#             message = self.fallback_model(messages, stop_sequences, **kwargs)
+#             return message
+#         except Exception as e:
+#             raise Exception(f"Both endpoints failed. Last error: {e}")
+
 class QwenVLAPIModel(Model):
     """Model wrapper for Qwen2.5VL API with fallback mechanism"""
     
     def __init__(
         self, 
-        model_id: str = "Qwen/Qwen2.5-VL-72B-Instruct",
+        model_path: str = "Qwen/Qwen2.5-VL-72B-Instruct",
+        provider: str = "hyperbolic",
         hf_token: str = None,
+        #hf_base_url: str = "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+        #hf_base_url: str = "https://s41ydkv0iyjeokyj.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+        #hf_base_url: str = "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"
+        hf_base_url: str= "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"
     ):
         super().__init__()
-        self.model_id = model_id
-        self.base_model = HfApiModel(
-            model_id="https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud",
-            token=hf_token,
-            max_tokens=4096,
+        self.model_path = model_path
+        self.model_id = model_path
+        self.provider = provider
+        self.hf_token = hf_token
+        self.hf_base_url = hf_base_url
+        
+        # Initialize hyperbolic client
+        self.hyperbolic_client = InferenceClient(
+            provider=self.provider,
         )
-        self.fallback_model = HfApiModel(
-            model_id,
-            provider="nebius",
-            token=hf_token,
-            max_tokens=4096,
-        )
+        
+        # Initialize HF OpenAI-compatible client if token is provided
+        self.hf_client = None
+        if hf_token:
+            from openai import OpenAI
+            self.hf_client = OpenAI(
+                base_url=self.hf_base_url,
+                api_key=self.hf_token
+            )
         
     def __call__(
         self, 
@@ -499,16 +617,129 @@ class QwenVLAPIModel(Model):
         stop_sequences: Optional[List[str]] = None, 
         **kwargs
     ) -> ChatMessage:
+        """Convert a list of messages to an API request with fallback mechanism"""
+        print(messages)
+        # Format messages once for both APIs
+        formatted_messages = self._format_messages(messages)
         
+        # First try the HF endpoint if available
+        if self.hf_client:
+            try:
+                completion = self._call_hf_endpoint(
+                    formatted_messages, 
+                    stop_sequences, 
+                    **kwargs
+                )
+                return ChatMessage(role=MessageRole.ASSISTANT, content=completion)
+            except Exception as e:
+                print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
+                # Continue to fallback
+        
+        # Fallback to hyperbolic
         try:
-            message = self.base_model(messages, stop_sequences, **kwargs)
-            return message
-        except Exception as e:
-            print(f"Base model failed with error: {e}. Calling fallback model.")
-                
-        # Continue to fallback
-        try:
-            message = self.fallback_model(messages, stop_sequences, **kwargs)
-            return message
+            return self._call_hyperbolic(formatted_messages, stop_sequences, **kwargs)
         except Exception as e:
             raise Exception(f"Both endpoints failed. Last error: {e}")
+    
+    def _format_messages(self, messages: List[Dict[str, Any]]):
+        """Format messages for API requests - works for both endpoints"""
+        
+        formatted_messages = []
+        
+        for msg in messages:
+            role = msg["role"]
+            content = []
+            
+            if isinstance(msg["content"], list):
+                for item in msg["content"]:
+                    if item["type"] == "text":
+                        content.append({"type": "text", "text": item["text"]})
+                    elif item["type"] == "image":
+                        # Handle image path or direct image object
+                        if isinstance(item["image"], str):
+                            # Image is a path
+                            with open(item["image"], "rb") as image_file:
+                                base64_image = base64.b64encode(image_file.read()).decode("utf-8")
+                        else:
+                            # Image is a PIL image or similar object
+                            img_byte_arr = io.BytesIO()
+                            item["image"].save(img_byte_arr, format="PNG")
+                            base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
+                        
+                        content.append({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{base64_image}"
+                            }
+                        })
+            else:
+                # Plain text message
+                content = [{"type": "text", "text": msg["content"]}]
+            
+            formatted_messages.append({"role": role, "content": content})
+        
+        return formatted_messages
+    
+    def _call_hf_endpoint(self, formatted_messages, stop_sequences=None, **kwargs):
+        """Call the Hugging Face OpenAI-compatible endpoint"""
+        
+        # Extract parameters with defaults
+        max_tokens = kwargs.get("max_new_tokens", 512)
+        temperature = kwargs.get("temperature", 0.7)
+        top_p = kwargs.get("top_p", 0.9)
+        stream = kwargs.get("stream", False)
+        
+        completion = self.hf_client.chat.completions.create(
+            model="tgi",  # Model name for the endpoint
+            messages=formatted_messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            stream=stream,
+            stop=stop_sequences
+        )
+        
+        if stream:
+            # For streaming responses, return a generator
+            def stream_generator():
+                for chunk in completion:
+                    yield chunk.choices[0].delta.content or ""
+            return stream_generator()
+        else:
+            # For non-streaming, return the full text
+            return completion.choices[0].message.content
+    
+    def _call_hyperbolic(self, formatted_messages, stop_sequences=None, **kwargs):
+        """Call the hyperbolic API"""
+        
+        completion = self.hyperbolic_client.chat.completions.create(
+            model=self.model_path,
+            messages=formatted_messages,
+            max_tokens=kwargs.get("max_new_tokens", 512),
+            temperature=kwargs.get("temperature", 0.7),
+            top_p=kwargs.get("top_p", 0.9),
+        )
+        
+        # Extract the response text
+        output_text = completion.choices[0].message.content
+        
+        return ChatMessage(role=MessageRole.ASSISTANT, content=output_text)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the model to a dictionary"""
+        return {
+            "class": self.__class__.__name__,
+            "model_path": self.model_path,
+            "provider": self.provider,
+            "hf_base_url": self.hf_base_url,
+            # We don't save the API keys for security reasons
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "QwenVLAPIModel":
+        """Create a model from a dictionary"""
+        return cls(
+            model_path=data.get("model_path", "Qwen/Qwen2.5-VL-72B-Instruct"),
+            provider=data.get("provider", "hyperbolic"),
+            hf_base_url=data.get("hf_base_url", "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"),
+        )
