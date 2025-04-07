@@ -16,8 +16,10 @@ from smolagents.agents import populate_template
 from smolagents.monitoring import LogLevel
 from smolagents.agent_types import AgentImage
 from PIL import ImageDraw
+from datetime import datetime
 
 E2B_SYSTEM_PROMPT_TEMPLATE = """You are a desktop automation assistant that can control a remote desktop environment.
+The current date is <<current_date>>.
 <action process>
 You will be given a task to solve in several steps. At each step you will perform an action.
 After each action, you'll receive an updated screenshot. 
@@ -142,7 +144,7 @@ Always analyze the latest screenshot carefully before performing actions.
 Desktop menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
 NEVER CLICK THE WEB BROWSER ICON TO OPEN THE WEB BROWSER: use open_url
 </general_guidelines>
-"""
+""".replace("<<current_date>>", datetime.now().strftime("%A, %d-%B-%Y"))
 
 
 def draw_marker_on_image(image_copy, click_coordinates):
@@ -419,7 +421,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             Args:
                 x: The x coordinate (horizontal position) of the element to scroll/zoom
                 y: The y coordinate (vertical position) of the element to scroll/zoom
-                direction: The direction to scroll ("up" or "down"), defaults to "down"
+                direction: The direction to scroll ("up" or "down"), defaults to "down". For zoom, "up" zooms in, "down" zooms out.
                 amount: The amount to scroll. A good amount is 1 or 2.
             """
             self.desktop.move_mouse(x, y)
