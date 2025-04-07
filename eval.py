@@ -18,7 +18,7 @@ from e2bqwen import QwenVLAPIModel, E2BVisionAgent
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 # Environment variables and constants
 E2B_API_KEY = os.getenv("E2B_API_KEY")
 # Try to get token dynamically, fall back to environment variable
@@ -290,7 +290,7 @@ def main():
         "wiki": "When was Temple Grandin introduced to the American Academy of Arts and Sciences, according to Wikipedia?",
         "flight": "Search a flight Rome - Berlin for tomorrow",
         "pond": "What's the name of the pond just south of Château de Fontainebleau in Google maps?",
-        "flux": "Go generate a picture of the Golden Gate bridge on a FLUX1.dev space",
+        "flux": "Go on the Hugging Face Hub, find a Space for FLUX1.dev, and generate a picture of the Golden Gate bridge.",
         "hf": "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background",
     }
     
@@ -298,7 +298,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     
     # Run the evaluation
-    eval_dir = run_evaluation(examples, args.num_runs, args.output_dir, args.max_parallel, args.max_steps)
+    run_evaluation(examples, args.num_runs, args.output_dir, args.max_parallel, args.max_steps)
 
 if __name__ == "__main__":
     main()

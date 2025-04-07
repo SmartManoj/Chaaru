@@ -16,6 +16,10 @@ from smolagents.gradio_ui import GradioUI, stream_to_gradio
 from model_replay import FakeModelReplayLog
 from gradio_modal import Modal
 
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
 from e2bqwen import QwenVLAPIModel, E2BVisionAgent
 
 E2B_API_KEY = os.getenv("E2B_API_KEY")
@@ -28,7 +32,7 @@ TMP_DIR = './tmp/'
 if not os.path.exists(TMP_DIR):
     os.makedirs(TMP_DIR)
 
-hf_token = os.getenv("HUGGINGFACE_API_KEY")
+hf_token = os.getenv("HF_TOKEN")
 login(token=hf_token)
 
 custom_css = """
@@ -297,25 +301,6 @@ custom_js = """function() {
 }
 """
 
-def write_to_console_log(log_file_path, message):
-    """
-    Appends a message to the specified log file with a newline character.
-    
-    Parameters:
-        log_file_path (str): Path to the log file
-        message (str): Message to append to the log file
-    """
-    if log_file_path is None:
-        return False
-    try:
-        # Open the file in append mode
-        with open(log_file_path, 'a') as log_file:
-            # Write the message followed by a newline
-            log_file.write(f"{message}\n")
-        return True
-    except Exception as e:
-        print(f"Error writing to log file: {str(e)}")
-        return False
     
 def upload_to_hf_and_remove(folder_path):
 
@@ -472,16 +457,16 @@ def create_agent(data_dir, desktop):
         hf_token = hf_token,
     )
 
-    model = OpenAIServerModel(
-        "gpt-4o",api_key=os.getenv("OPENAI_API_KEY")
-    )
+    # model = OpenAIServerModel(
+    #     "gpt-4o",api_key=os.getenv("OPENAI_API_KEY")
+    # )
     return E2BVisionAgent(
         model=model,
         data_dir=data_dir,
         desktop=desktop,
         max_steps=200,
         verbosity_level=2,
-        planning_interval=10,
+        # planning_interval=10,
         use_v1_prompt=True
     )
 
@@ -527,13 +512,14 @@ class EnrichedGradioUI(GradioUI):
                 yield stored_messages
 
             # THIS ERASES IMAGES FROM AGENT MEMORY, USE WITH CAUTION
-            if consent_storage:
-                summary = get_agent_summary_erase_images(session_state["agent"])
-                save_final_status(data_dir, "completed", summary = summary)
+            # if consent_storage:
+            #     summary = get_agent_summary_erase_images(session_state["agent"])
+            #     save_final_status(data_dir, "completed", summary = summary)
             yield stored_messages
     
         except Exception as e:
             error_message=f"Error in interaction: {str(e)}"
+            raise e
             print(error_message)
             stored_messages.append(gr.ChatMessage(role="assistant", content="Run failed:\n" + error_message))
             if consent_storage:
@@ -584,7 +570,7 @@ _Please note that we store the task logs by default so **do not write any person
                     "Check the commuting time between Bern and Zurich on Google maps",
                     "Write 'Hello World' in a text editor",
                     "When was Temple Grandin introduced to the American Academy of Arts and Sciences, according to Wikipedia?",
-                    "Search a flight Rome - Berlin for tomorrow",
+                    "Search a flight from Rome to Berlin for tomorrow on Skyscanner",
                     "What' s the name of the pond just south of Château de Fontainebleau in Google maps?",
                     "Go on the Hugging Face Hub, find the space for FLUX1.dev, then generate a picture of the Golden Gate bridge",
                     "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background",

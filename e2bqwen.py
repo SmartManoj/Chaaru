@@ -1,14 +1,8 @@
 import os
 import time
-import base64
 from io import BytesIO
-from textwrap import dedent
-from typing import Any, Dict, List, Optional, Tuple
-import json
+from typing import Any, Dict, List, Optional
 import unicodedata
-
-# HF API params
-from huggingface_hub import InferenceClient
 
 # E2B imports
 from e2b_desktop import Sandbox
@@ -17,7 +11,8 @@ from PIL import Image
 # SmolaAgents imports
 from smolagents import CodeAgent, tool, HfApiModel
 from smolagents.memory import ActionStep
-from smolagents.models import ChatMessage, MessageRole, Model
+from smolagents.models import ChatMessage, Model
+from smolagents.agents import populate_template
 from smolagents.monitoring import LogLevel
 from smolagents.agent_types import AgentImage
 from PIL import ImageDraw
@@ -48,7 +43,7 @@ On top of performing computations in the Python code snippets that you create, y
 {%- endfor %}
 
 The desktop has a resolution of <<resolution_x>>x<<resolution_y>> pixels, take it into account to decide clicking coordinates.
-If you clicked somewhere in the previous action, a red crosshair will appear at the exact location of the previous click.
+If you clicked somewhere in the previous action, a green crosshair will appear at the exact location of the previous click.
 The image might have change since then but the cross stays at the previous click. If your click seems to have changed nothing, check that this location is exactly where you intended to click. Otherwise correct the click coordinates.
 </tools>
 
@@ -98,7 +93,7 @@ click(251, 441)
 Step 4:
 Short term goal: I want to open a text editor.
 Where I am: I am still under the Accessories menu.
-What I see: Nothing has changed compared to previous screenshot. Under the open submenu Accessories, I still see 'Text Editor'. The red crosshair is off from the element.
+What I see: Nothing has changed compared to previous screenshot. Under the open submenu Accessories, I still see 'Text Editor'. The green cross is off from the element.
 Reflection: My last click must have been off. Let's correct this.
 Action: I will click the correct place, right in the middle of the element.
 Code:
@@ -145,7 +140,7 @@ On each step, look at the last screenshot and action to validate if previous ste
 Use click to move through menus on the desktop and scroll for web and specific applications.
 Always analyze the latest screenshot carefully before performing actions.
 Desktop menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
-Remember the tools that you have as those can save you time, for example open_url to enter a website rather than searching for the browser in the OS.
+NEVER CLICK THE WEB BROWSER ICON TO OPEN THE WEB BROWSER: use open_url
 </general_guidelines>
 """
 
@@ -153,20 +148,12 @@ def draw_marker_on_image(image_copy, click_coordinates):
     x, y = click_coordinates
     draw = ImageDraw.Draw(image_copy)
     cross_size, linewidth = 10, 3
-    # Draw red cross lines
-    draw.line((x - cross_size, y, x + cross_size, y), fill="red", width=linewidth)
-    draw.line((x, y - cross_size, x, y + cross_size), fill="red", width=linewidth)
+    # Draw cross
+    draw.line((x - cross_size, y, x + cross_size, y), fill="green", width=linewidth)
+    draw.line((x, y - cross_size, x, y + cross_size), fill="green", width=linewidth)
     # Add a circle around it for better visibility
-    draw.ellipse((x - cross_size * 2, y - cross_size * 2, x + cross_size * 2, y + cross_size * 2), outline="red", width=linewidth)
+    draw.ellipse((x - cross_size * 2, y - cross_size * 2, x + cross_size * 2, y + cross_size * 2), outline="green", width=linewidth)
     return image_copy
-
-from jinja2 import StrictUndefined, Template
-
-
-def populate_template(template: str, variables: Dict[str, Any]) -> str:
-    compiled_template = Template(template, undefined=StrictUndefined)
-    return compiled_template.render(**variables)
-
 
 
 class E2BVisionAgent(CodeAgent):
@@ -179,7 +166,7 @@ class E2BVisionAgent(CodeAgent):
         tools: List[tool] = None,
         max_steps: int = 200,
         verbosity_level: LogLevel = 2,
-        planning_interval: int = 10,
+        planning_interval: int = None,
         use_v1_prompt: bool = False,
         **kwargs
     ):
@@ -216,7 +203,7 @@ class E2BVisionAgent(CodeAgent):
         self.step_callbacks.append(self.take_screenshot_callback)
 
     def initialize_system_prompt(self) -> str:
-        if self.use_v1_prompt:
+        if True:
             return """You are a desktop automation assistant that can control a remote desktop environment.
 You only have access to the following tools to interact with the desktop, no additional ones:
 - click(x, y): Performs a left-click at the specified coordinates
@@ -228,6 +215,8 @@ You only have access to the following tools to interact with the desktop, no add
 - scroll(x, y, direction, amount): Scrolls a website in a browser or a document (direction can be "up" or "down", a common amount is 1 or 2 scroll("down",1) ). DO NOT use scroll to move through linux desktop menus. x, y, is the mouse position to scroll on.
 - wait(seconds): Waits for the specified number of seconds. Very useful in case the prior order is still executing (for example starting very heavy applications like browsers or office apps)
 - open_url(url): Directly opens a browser with the specified url, saves time compared to clicking in a browser and going through the initial setup wizard.
+- drag_and_drop(x1, y1, x2, y2): Clicks [x1, y1], drags mouse to [x2, y2], then releases click.
+- find_on_page_ctrl_f(search_string): Scroll the viewport to the first occurrence of the search string. This is equivalent to Ctrl+F.
 - final_answer("YOUR FINAL ANSWER TEXT"): Announces that the task requested is completed and provides a final text
 The desktop has a resolution of {resolution_x}x{resolution_y}.
 IMPORTANT:
@@ -247,13 +236,13 @@ After each action, you'll receive an updated screenshot. Review it carefully bef
 COMMAND FORMAT:
 Always format your actions as Python code blocks. For example:
 ```python
-click(250, 300)
+click(250, 304)
 ```<end_code>
 TASK EXAMPLE:
 For a task like "Open a text editor and type 'Hello World'":
 1- First, analyze the screenshot to find the Applications menu and click on it being very precise, clicking in the middle of the text 'Applications':
 ```python
-click(50, 10) 
+click(52, 10) 
 ```<end_code>
 2- Remembering that menus are navigated through clicking, after analyzing the screenshot with the applications menu open we see that a notes application probably fits in the Accessories section (we see it is a section in the menu thanks to the tiny white triangle after the text accessories). We look for Accessories and click on it being very precise, clicking in the middle of the text 'Accessories'. DO NOT try to move through the menus with scroll, it won't work:
 ```python
@@ -280,6 +269,7 @@ Use click to move through menus on the desktop and scroll for web and specific a
 REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
 """.format(resolution_x=self.width, resolution_y=self.height)
         else:
+            print("USING v2 prompt")
             system_prompt = populate_template(
                 self.prompt_templates["system_prompt"],
                 variables={
@@ -405,16 +395,18 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         @tool
         def scroll(x: int, y: int, direction: str = "down", amount: int = 1) -> str:
             """
-            Uses scroll button: this could scroll the page or zoom, depending on the app. DO NOT use scroll to move through linux desktop menus.
+            Moves the mouse to selected coordinates, then uses the scroll button: this could scroll the page or zoom, depending on the app. DO NOT use scroll to move through linux desktop menus.
             Args:
                 x: The x coordinate (horizontal position) of the element to scroll/zoom
                 y: The y coordinate (vertical position) of the element to scroll/zoom
                 direction: The direction to scroll ("up" or "down"), defaults to "down"
                 amount: The amount to scroll. A good amount is 1 or 2.
             """
+            self.desktop.move_mouse(x, y)
             self.desktop.scroll(direction=direction, amount=amount)
-            self.logger.log(f"Scrolled {direction} by {amount}")
-            return f"Scrolled {direction} by {amount}"
+            message = f"Scrolled {direction} by {amount}"
+            self.logger.log(message)
+            return message
 
         @tool
         def wait(seconds: float) -> str:
@@ -430,7 +422,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         @tool
         def open_url(url: str) -> str:
             """
-            Directly opens a browser with the specified url, saves time compared to clicking in a browser and going through the initial setup wizard.
+            Directly opens a browser with the specified url: use this at start of web searches rather than trying to click the browser.
             Args:
                 url: The URL to open
             """
@@ -494,9 +486,9 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
 
         image_copy = image.copy()
 
-        if getattr(self, "click_coordinates", None):
-            print("DRAWING MARKER")
-            image_copy = draw_marker_on_image(image_copy, self.click_coordinates)
+        # if getattr(self, "click_coordinates", None):
+        #     print("DRAWING MARKER")
+        #     image_copy = draw_marker_on_image(image_copy, self.click_coordinates)
 
         self.last_marked_screenshot = AgentImage(screenshot_path)
         print(f"Saved screenshot for step {current_step} to {screenshot_path}")
@@ -506,7 +498,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         ) in agent.memory.steps:  # Remove previous screenshots from logs for lean processing
             if (
                 isinstance(previous_memory_step, ActionStep)
-                and previous_memory_step.step_number <= current_step - 2
+                and previous_memory_step.step_number <= current_step - 1
             ):
                 previous_memory_step.observations_images = None
 
@@ -535,81 +527,27 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             print("E2B sandbox terminated")
 
 
-# class QwenVLAPIModel(Model):
-#     """Model wrapper for Qwen2.5VL API with fallback mechanism"""
-    
-#     def __init__(
-#         self, 
-#         model_id: str = "Qwen/Qwen2.5-VL-72B-Instruct",
-#         hf_token: str = None,
-#     ):
-#         super().__init__()
-#         self.model_id = model_id
-#         self.base_model = HfApiModel(
-#             model_id="https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud",
-#             token=hf_token,
-#             max_tokens=4096,
-#         )
-#         self.fallback_model = HfApiModel(
-#             model_id,
-#             provider="nebius",
-#             token=hf_token,
-#             max_tokens=4096,
-#         )
-        
-#     def __call__(
-#         self, 
-#         messages: List[Dict[str, Any]], 
-#         stop_sequences: Optional[List[str]] = None, 
-#         **kwargs
-#     ) -> ChatMessage:
-        
-#         try:
-#             message = self.base_model(messages, stop_sequences, **kwargs)
-#             return message
-#         except Exception as e:
-#             print(f"Base model failed with error: {e}. Calling fallback model.")
-                
-#         # Continue to fallback
-#         try:
-#             message = self.fallback_model(messages, stop_sequences, **kwargs)
-#             return message
-#         except Exception as e:
-#             raise Exception(f"Both endpoints failed. Last error: {e}")
-
 class QwenVLAPIModel(Model):
     """Model wrapper for Qwen2.5VL API with fallback mechanism"""
     
     def __init__(
         self, 
-        model_path: str = "Qwen/Qwen2.5-VL-72B-Instruct",
-        provider: str = "hyperbolic",
+        model_id: str = "Qwen/Qwen2.5-VL-72B-Instruct",
         hf_token: str = None,
-        #hf_base_url: str = "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"
-        #hf_base_url: str = "https://s41ydkv0iyjeokyj.us-east-1.aws.endpoints.huggingface.cloud/v1/"
-        #hf_base_url: str = "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"
-        hf_base_url: str= "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"
     ):
         super().__init__()
-        self.model_path = model_path
-        self.model_id = model_path
-        self.provider = provider
-        self.hf_token = hf_token
-        self.hf_base_url = hf_base_url
-        
-        # Initialize hyperbolic client
-        self.hyperbolic_client = InferenceClient(
-            provider=self.provider,
+        self.model_id = model_id
+        self.base_model = HfApiModel(
+            model_id="https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud",
+            token=hf_token,
+            max_tokens=4096,
         )
-        
-        # Initialize HF OpenAI-compatible client if token is provided
-        self.hf_client = None
-        if hf_token:
-            from openai import OpenAI
-            self.hf_client = OpenAI(
-                base_url=self.hf_base_url,
-                api_key=self.hf_token
-            )
+        self.fallback_model = HfApiModel(
+            model_id,
+            provider="nebius",
+            token=hf_token,
+            max_tokens=4096,
+        )
         
     def __call__(
         self, 
@@ -617,129 +555,18 @@ class QwenVLAPIModel(Model):
         stop_sequences: Optional[List[str]] = None, 
         **kwargs
     ) -> ChatMessage:
-        """Convert a list of messages to an API request with fallback mechanism"""
-        print(messages)
-        # Format messages once for both APIs
-        formatted_messages = self._format_messages(messages)
         
-        # First try the HF endpoint if available
-        if self.hf_client:
-            try:
-                completion = self._call_hf_endpoint(
-                    formatted_messages, 
-                    stop_sequences, 
-                    **kwargs
-                )
-                return ChatMessage(role=MessageRole.ASSISTANT, content=completion)
-            except Exception as e:
-                print(f"HF endpoint failed with error: {e}. Falling back to hyperbolic.")
-                # Continue to fallback
-        
-        # Fallback to hyperbolic
         try:
-            return self._call_hyperbolic(formatted_messages, stop_sequences, **kwargs)
+            message = self.base_model(messages, stop_sequences, **kwargs)
+            return message
         except Exception as e:
+            raise e
+            print(f"Base model failed with error: {e}. Calling fallback model.")
+                
+        # Continue to fallback
+        try:
+            message = self.fallback_model(messages, stop_sequences, **kwargs)
+            return message
+        except Exception as e:
+            raise e
             raise Exception(f"Both endpoints failed. Last error: {e}")
-    
-    def _format_messages(self, messages: List[Dict[str, Any]]):
-        """Format messages for API requests - works for both endpoints"""
-        
-        formatted_messages = []
-        
-        for msg in messages:
-            role = msg["role"]
-            content = []
-            
-            if isinstance(msg["content"], list):
-                for item in msg["content"]:
-                    if item["type"] == "text":
-                        content.append({"type": "text", "text": item["text"]})
-                    elif item["type"] == "image":
-                        # Handle image path or direct image object
-                        if isinstance(item["image"], str):
-                            # Image is a path
-                            with open(item["image"], "rb") as image_file:
-                                base64_image = base64.b64encode(image_file.read()).decode("utf-8")
-                        else:
-                            # Image is a PIL image or similar object
-                            img_byte_arr = io.BytesIO()
-                            item["image"].save(img_byte_arr, format="PNG")
-                            base64_image = base64.b64encode(img_byte_arr.getvalue()).decode("utf-8")
-                        
-                        content.append({
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{base64_image}"
-                            }
-                        })
-            else:
-                # Plain text message
-                content = [{"type": "text", "text": msg["content"]}]
-            
-            formatted_messages.append({"role": role, "content": content})
-        
-        return formatted_messages
-    
-    def _call_hf_endpoint(self, formatted_messages, stop_sequences=None, **kwargs):
-        """Call the Hugging Face OpenAI-compatible endpoint"""
-        
-        # Extract parameters with defaults
-        max_tokens = kwargs.get("max_new_tokens", 512)
-        temperature = kwargs.get("temperature", 0.7)
-        top_p = kwargs.get("top_p", 0.9)
-        stream = kwargs.get("stream", False)
-        
-        completion = self.hf_client.chat.completions.create(
-            model="tgi",  # Model name for the endpoint
-            messages=formatted_messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            stream=stream,
-            stop=stop_sequences
-        )
-        
-        if stream:
-            # For streaming responses, return a generator
-            def stream_generator():
-                for chunk in completion:
-                    yield chunk.choices[0].delta.content or ""
-            return stream_generator()
-        else:
-            # For non-streaming, return the full text
-            return completion.choices[0].message.content
-    
-    def _call_hyperbolic(self, formatted_messages, stop_sequences=None, **kwargs):
-        """Call the hyperbolic API"""
-        
-        completion = self.hyperbolic_client.chat.completions.create(
-            model=self.model_path,
-            messages=formatted_messages,
-            max_tokens=kwargs.get("max_new_tokens", 512),
-            temperature=kwargs.get("temperature", 0.7),
-            top_p=kwargs.get("top_p", 0.9),
-        )
-        
-        # Extract the response text
-        output_text = completion.choices[0].message.content
-        
-        return ChatMessage(role=MessageRole.ASSISTANT, content=output_text)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert the model to a dictionary"""
-        return {
-            "class": self.__class__.__name__,
-            "model_path": self.model_path,
-            "provider": self.provider,
-            "hf_base_url": self.hf_base_url,
-            # We don't save the API keys for security reasons
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "QwenVLAPIModel":
-        """Create a model from a dictionary"""
-        return cls(
-            model_path=data.get("model_path", "Qwen/Qwen2.5-VL-72B-Instruct"),
-            provider=data.get("provider", "hyperbolic"),
-            hf_base_url=data.get("hf_base_url", "https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud/v1/"),
-        )
