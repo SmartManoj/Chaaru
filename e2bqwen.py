@@ -10,7 +10,7 @@ from PIL import Image
 
 # SmolaAgents imports
 from smolagents import CodeAgent, tool, HfApiModel
-from smolagents.memory import ActionStep
+from smolagents.memory import ActionStep, TaskStep
 from smolagents.models import ChatMessage, Model
 from smolagents.agents import populate_template
 from smolagents.monitoring import LogLevel
@@ -144,6 +144,7 @@ NEVER CLICK THE WEB BROWSER ICON TO OPEN THE WEB BROWSER: use open_url
 </general_guidelines>
 """
 
+
 def draw_marker_on_image(image_copy, click_coordinates):
     x, y = click_coordinates
     draw = ImageDraw.Draw(image_copy)
@@ -152,12 +153,22 @@ def draw_marker_on_image(image_copy, click_coordinates):
     draw.line((x - cross_size, y, x + cross_size, y), fill="green", width=linewidth)
     draw.line((x, y - cross_size, x, y + cross_size), fill="green", width=linewidth)
     # Add a circle around it for better visibility
-    draw.ellipse((x - cross_size * 2, y - cross_size * 2, x + cross_size * 2, y + cross_size * 2), outline="green", width=linewidth)
+    draw.ellipse(
+        (
+            x - cross_size * 2,
+            y - cross_size * 2,
+            x + cross_size * 2,
+            y + cross_size * 2,
+        ),
+        outline="green",
+        width=linewidth,
+    )
     return image_copy
 
 
 class E2BVisionAgent(CodeAgent):
     """Agent for e2b desktop automation with Qwen2.5VL vision capabilities"""
+
     def __init__(
         self,
         model: HfApiModel,
@@ -168,7 +179,7 @@ class E2BVisionAgent(CodeAgent):
         verbosity_level: LogLevel = 2,
         planning_interval: int = None,
         use_v1_prompt: bool = False,
-        **kwargs
+        **kwargs,
     ):
         self.desktop = desktop
         self.data_dir = data_dir
@@ -188,10 +199,12 @@ class E2BVisionAgent(CodeAgent):
             model=model,
             max_steps=max_steps,
             verbosity_level=verbosity_level,
-            planning_interval = self.planning_interval,
-            **kwargs
+            planning_interval=self.planning_interval,
+            **kwargs,
         )
-        self.prompt_templates["system_prompt"] = E2B_SYSTEM_PROMPT_TEMPLATE.replace("<<resolution_x>>", str(self.width)).replace("<<resolution_y>>", str(self.height))
+        self.prompt_templates["system_prompt"] = E2B_SYSTEM_PROMPT_TEMPLATE.replace(
+            "<<resolution_x>>", str(self.width)
+        ).replace("<<resolution_y>>", str(self.height))
 
         # Add screen info to state
         self.state["screen_width"] = self.width
@@ -203,7 +216,7 @@ class E2BVisionAgent(CodeAgent):
         self.step_callbacks.append(self.take_screenshot_callback)
 
     def initialize_system_prompt(self) -> str:
-        if True:
+        if False:
             return """You are a desktop automation assistant that can control a remote desktop environment.
 You only have access to the following tools to interact with the desktop, no additional ones:
 - click(x, y): Performs a left-click at the specified coordinates
@@ -282,11 +295,14 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
                     ),
                 },
             )
-            assert system_prompt != self.prompt_templates["system_prompt"], "Populating prompt template failed"
+            assert system_prompt != self.prompt_templates["system_prompt"], (
+                "Populating prompt template failed"
+            )
             return system_prompt
 
     def _setup_desktop_tools(self):
         """Register all desktop tools"""
+
         @tool
         def click(x: int, y: int) -> str:
             """
@@ -342,7 +358,11 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             return f"Moved mouse to coordinates ({x}, {y})"
 
         def normalize_text(text):
-            return ''.join(c for c in unicodedata.normalize('NFD', text) if not unicodedata.combining(c))
+            return "".join(
+                c
+                for c in unicodedata.normalize("NFD", text)
+                if not unicodedata.combining(c)
+            )
 
         @tool
         def type_text(text: str) -> str:
@@ -469,7 +489,6 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         self.tools["drag_and_drop"] = drag_and_drop
         self.tools["find_on_page_ctrl_f"] = find_on_page_ctrl_f
 
-
     def take_screenshot_callback(self, memory_step: ActionStep, agent=None) -> None:
         """Callback that takes a screenshot + memory snapshot after a step completes"""
         self.logger.log("Analyzing screen content...")
@@ -493,21 +512,31 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         self.last_marked_screenshot = AgentImage(screenshot_path)
         print(f"Saved screenshot for step {current_step} to {screenshot_path}")
 
-        for (
-            previous_memory_step
-        ) in agent.memory.steps:  # Remove previous screenshots from logs for lean processing
+        for previous_memory_step in (
+            agent.memory.steps
+        ):  # Remove previous screenshots from logs for lean processing
             if (
                 isinstance(previous_memory_step, ActionStep)
                 and previous_memory_step.step_number <= current_step - 1
             ):
+                previous_memory_step.observations_images = None
+            elif isinstance(previous_memory_step, TaskStep):
                 previous_memory_step.observations_images = None
 
             if (
                 isinstance(previous_memory_step, ActionStep)
                 and previous_memory_step.step_number == current_step - 1
             ):
-                if previous_memory_step.tool_calls and getattr(previous_memory_step.tool_calls[0], "arguments", None) and memory_step.tool_calls and getattr(memory_step.tool_calls[0], "arguments", None):
-                    if previous_memory_step.tool_calls[0].arguments == memory_step.tool_calls[0].arguments:
+                if (
+                    previous_memory_step.tool_calls
+                    and getattr(previous_memory_step.tool_calls[0], "arguments", None)
+                    and memory_step.tool_calls
+                    and getattr(memory_step.tool_calls[0], "arguments", None)
+                ):
+                    if (
+                        previous_memory_step.tool_calls[0].arguments
+                        == memory_step.tool_calls[0].arguments
+                    ):
                         memory_step.observations += "\nWARNING: You've executed the same action several times in a row. MAKE SURE TO NOT UNNECESSARILY REPEAT ACTIONS."
 
         # Add the marker-edited image to the current memory step
@@ -515,8 +544,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
 
         # memory_step.observations_images = [screenshot_path] # IF YOU USE THIS INSTEAD OF ABOVE, LAUNCHING A SECOND TASK BREAKS
 
-        self.click_coordinates = None # Reset click marker
-
+        self.click_coordinates = None  # Reset click marker
 
     def close(self):
         """Clean up resources"""
@@ -529,9 +557,9 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
 
 class QwenVLAPIModel(Model):
     """Model wrapper for Qwen2.5VL API with fallback mechanism"""
-    
+
     def __init__(
-        self, 
+        self,
         model_id: str = "Qwen/Qwen2.5-VL-72B-Instruct",
         hf_token: str = None,
     ):
@@ -548,25 +576,22 @@ class QwenVLAPIModel(Model):
             token=hf_token,
             max_tokens=4096,
         )
-        
+
     def __call__(
-        self, 
-        messages: List[Dict[str, Any]], 
-        stop_sequences: Optional[List[str]] = None, 
-        **kwargs
+        self,
+        messages: List[Dict[str, Any]],
+        stop_sequences: Optional[List[str]] = None,
+        **kwargs,
     ) -> ChatMessage:
-        
         try:
             message = self.base_model(messages, stop_sequences, **kwargs)
             return message
         except Exception as e:
-            raise e
             print(f"Base model failed with error: {e}. Calling fallback model.")
-                
+
         # Continue to fallback
         try:
             message = self.fallback_model(messages, stop_sequences, **kwargs)
             return message
         except Exception as e:
-            raise e
             raise Exception(f"Both endpoints failed. Last error: {e}")

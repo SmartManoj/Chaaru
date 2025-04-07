@@ -2,25 +2,23 @@ import gradio as gr
 import os
 import json
 import shutil
-import traceback
 import uuid
-from textwrap import dedent
 import time
 from threading import Timer
 from huggingface_hub import upload_folder, login
 from e2b_desktop import Sandbox
-
-from smolagents import CodeAgent, OpenAIServerModel
-from smolagents.monitoring import LogLevel
-from smolagents.gradio_ui import GradioUI, stream_to_gradio
-from model_replay import FakeModelReplayLog
 from gradio_modal import Modal
-
+from io import BytesIO
+from PIL import Image
 from dotenv import load_dotenv
+
+from smolagents import CodeAgent
+from smolagents.gradio_ui import GradioUI, stream_to_gradio
+
+from e2bqwen import QwenVLAPIModel, E2BVisionAgent
 
 load_dotenv(override=True)
 
-from e2bqwen import QwenVLAPIModel, E2BVisionAgent
 
 E2B_API_KEY = os.getenv("E2B_API_KEY")
 SANDBOXES = {}
@@ -28,11 +26,11 @@ SANDBOX_METADATA = {}
 SANDBOX_TIMEOUT = 600
 WIDTH = 1024
 HEIGHT = 768
-TMP_DIR = './tmp/'
+TMP_DIR = "./tmp/"
 if not os.path.exists(TMP_DIR):
     os.makedirs(TMP_DIR)
 
-hf_token = os.getenv("HF_TOKEN")
+hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY")
 login(token=hf_token)
 
 custom_css = """
@@ -152,9 +150,9 @@ custom_css = """
 .logo-item:hover {
     color: #935f06!important;
 }
-""".replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
+""".replace("<<WIDTH>>", str(WIDTH + 15)).replace("<<HEIGHT>>", str(HEIGHT + 10))
 
-footer_html="""
+footer_html = """
 <h3 style="text-align: center; margin-top:50px;"><i>Powered by open source:</i></h2>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 <div class="logo-container">
@@ -182,7 +180,7 @@ sandbox_html_template = """
     <img src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/blue_screen_of_death.gif" class="bsod-image" style="display: none;"/>
     <img src="https://huggingface.co/datasets/m-ric/images/resolve/main/HUD_thom.png" class="sandbox-frame" />
 </div>
-""".replace("<<WIDTH>>", str(WIDTH+15)).replace("<<HEIGHT>>", str(HEIGHT+10))
+""".replace("<<WIDTH>>", str(WIDTH + 15)).replace("<<HEIGHT>>", str(HEIGHT + 10))
 
 custom_js = """function() {
     document.body.classList.add('dark');
@@ -301,13 +299,12 @@ custom_js = """function() {
 }
 """
 
-    
-def upload_to_hf_and_remove(folder_path):
 
-    repo_id = "smolagents/computer-agent-logs"    
+def upload_to_hf_and_remove(folder_path):
+    repo_id = "smolagents/computer-agent-logs"
     try:
         folder_name = os.path.basename(os.path.normpath(folder_path))
-        
+
         # Upload the folder to Huggingface
         print(f"Uploading {folder_path} to {repo_id}/{folder_name}...")
         url = upload_folder(
@@ -315,29 +312,30 @@ def upload_to_hf_and_remove(folder_path):
             repo_id=repo_id,
             repo_type="dataset",
             path_in_repo=folder_name,
-            ignore_patterns=[".git/*", ".gitignore"]
+            ignore_patterns=[".git/*", ".gitignore"],
         )
-        
+
         # Remove the local folder after successful upload
         print(f"Upload complete. Removing local folder {folder_path}...")
         shutil.rmtree(folder_path)
         print("Local folder removed successfully.")
-        
+
         return url
-    
+
     except Exception as e:
         print(f"Error during upload or cleanup: {str(e)}")
         raise
+
 
 def cleanup_sandboxes():
     """Remove sandboxes that haven't been accessed for more than 5 minutes"""
     current_time = time.time()
     sandboxes_to_remove = []
-    
+
     for session_id, metadata in SANDBOX_METADATA.items():
-        if current_time - metadata['last_accessed'] > SANDBOX_TIMEOUT:
+        if current_time - metadata["last_accessed"] > SANDBOX_TIMEOUT:
             sandboxes_to_remove.append(session_id)
-    
+
     for session_id in sandboxes_to_remove:
         if session_id in SANDBOXES:
             try:
@@ -345,7 +343,7 @@ def cleanup_sandboxes():
                 data_dir = os.path.join(TMP_DIR, session_id)
                 if os.path.exists(data_dir):
                     upload_to_hf_and_remove(data_dir)
-                
+
                 # Close the sandbox
                 SANDBOXES[session_id].kill()
                 del SANDBOXES[session_id]
@@ -354,14 +352,18 @@ def cleanup_sandboxes():
             except Exception as e:
                 print(f"Error cleaning up sandbox {session_id}: {str(e)}")
 
+
 def get_or_create_sandbox(session_uuid):
     current_time = time.time()
 
-    if (session_uuid in SANDBOXES and 
-        session_uuid in SANDBOX_METADATA and
-        current_time - SANDBOX_METADATA[session_uuid]['created_at'] < SANDBOX_TIMEOUT):
+    if (
+        session_uuid in SANDBOXES
+        and session_uuid in SANDBOX_METADATA
+        and current_time - SANDBOX_METADATA[session_uuid]["created_at"]
+        < SANDBOX_TIMEOUT
+    ):
         print(f"Reusing Sandbox for  {session_uuid}")
-        SANDBOX_METADATA[session_uuid]['last_accessed'] = current_time
+        SANDBOX_METADATA[session_uuid]["last_accessed"] = current_time
         return SANDBOXES[session_uuid]
 
     if session_uuid in SANDBOXES:
@@ -372,27 +374,38 @@ def get_or_create_sandbox(session_uuid):
             print(f"Error closing expired sandbox: {str(e)}")
 
     print(f"Creating new sandbox for session {session_uuid}")
-    desktop = Sandbox(api_key=E2B_API_KEY, resolution=(WIDTH, HEIGHT), dpi=96, timeout=SANDBOX_TIMEOUT)
+    desktop = Sandbox(
+        api_key=E2B_API_KEY,
+        resolution=(WIDTH, HEIGHT),
+        dpi=96,
+        timeout=SANDBOX_TIMEOUT,
+        template="k0wmnzir0zuzye6dndlw",
+    )
     desktop.stream.start(require_auth=True)
     setup_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}' | sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
     desktop.commands.run(setup_cmd)
 
     SANDBOXES[session_uuid] = desktop
     SANDBOX_METADATA[session_uuid] = {
-        'created_at': current_time,
-        'last_accessed': current_time
+        "created_at": current_time,
+        "last_accessed": current_time,
     }
     return desktop
+
 
 def update_html(interactive_mode: bool, session_uuid):
     desktop = get_or_create_sandbox(session_uuid)
     auth_key = desktop.stream.get_auth_key()
     base_url = desktop.stream.get_url(auth_key=auth_key)
     stream_url = base_url if interactive_mode else f"{base_url}&view_only=true"
-    
+
     status_class = "status-interactive" if interactive_mode else "status-view-only"
     status_text = "Interactive" if interactive_mode else "Agent running..."
-    creation_time = SANDBOX_METADATA[session_uuid]['created_at'] if session_uuid in SANDBOX_METADATA else time.time()
+    creation_time = (
+        SANDBOX_METADATA[session_uuid]["created_at"]
+        if session_uuid in SANDBOX_METADATA
+        else time.time()
+    )
 
     sandbox_html_content = sandbox_html_template.format(
         stream_url=stream_url,
@@ -406,24 +419,27 @@ def update_html(interactive_mode: bool, session_uuid):
 def generate_interaction_id(session_uuid):
     return f"{session_uuid}_{int(time.time())}"
 
+
 def chat_message_to_json(obj):
     """Custom JSON serializer for ChatMessage and related objects"""
-    if hasattr(obj, '__dict__'):
+    if hasattr(obj, "__dict__"):
         # Create a copy of the object's __dict__ to avoid modifying the original
         result = obj.__dict__.copy()
-        
+
         # Remove the 'raw' field which may contain non-serializable data
-        if 'raw' in result:
-            del result['raw']
-            
+        if "raw" in result:
+            del result["raw"]
+
         # Process the content or tool_calls if they exist
-        if 'content' in result and result['content'] is not None:
-            if hasattr(result['content'], '__dict__'):
-                result['content'] = chat_message_to_json(result['content'])
-        
-        if 'tool_calls' in result and result['tool_calls'] is not None:
-            result['tool_calls'] = [chat_message_to_json(tc) for tc in result['tool_calls']]
-            
+        if "content" in result and result["content"] is not None:
+            if hasattr(result["content"], "__dict__"):
+                result["content"] = chat_message_to_json(result["content"])
+
+        if "tool_calls" in result and result["tool_calls"] is not None:
+            result["tool_calls"] = [
+                chat_message_to_json(tc) for tc in result["tool_calls"]
+            ]
+
         return result
     elif isinstance(obj, (list, tuple)):
         return [chat_message_to_json(item) for item in obj]
@@ -431,15 +447,22 @@ def chat_message_to_json(obj):
         return obj
 
 
-def save_final_status(folder, status: str, summary, error_message = None) -> None:
+def save_final_status(folder, status: str, summary, error_message=None) -> None:
     metadata_path = os.path.join(folder, "metadata.json")
     output_file = open(metadata_path, "w")
-    output_file.write(json.dumps({"status":status, "summary":summary, "error_message": error_message}, default=chat_message_to_json))
+    output_file.write(
+        json.dumps(
+            {"status": status, "summary": summary, "error_message": error_message},
+            default=chat_message_to_json,
+        )
+    )
     output_file.close()
+
 
 def extract_browser_uuid(js_uuid):
     print(f"[BROWSER] Got browser UUID from JS: {js_uuid}")
     return js_uuid
+
 
 def initialize_session(request: gr.Request, interactive_mode, browser_uuid):
     if not browser_uuid:
@@ -454,7 +477,7 @@ def initialize_session(request: gr.Request, interactive_mode, browser_uuid):
 def create_agent(data_dir, desktop):
     model = QwenVLAPIModel(
         model_id="Qwen/Qwen2.5-VL-72B-Instruct",
-        hf_token = hf_token,
+        hf_token=hf_token,
     )
 
     # model = OpenAIServerModel(
@@ -467,14 +490,16 @@ def create_agent(data_dir, desktop):
         max_steps=200,
         verbosity_level=2,
         # planning_interval=10,
-        use_v1_prompt=True
+        use_v1_prompt=True,
     )
+
 
 def get_agent_summary_erase_images(agent):
     for memory_step in agent.memory.steps:
         if getattr(memory_step, "observations_images", None):
             memory_step.observations_images = None
     return agent.memory.get_succinct_steps()
+
 
 class EnrichedGradioUI(GradioUI):
     def log_user_message(self, text_input):
@@ -485,7 +510,15 @@ class EnrichedGradioUI(GradioUI):
             gr.Button(interactive=False),
         )
 
-    def interact_with_agent(self, task_input, stored_messages, session_state, session_uuid, consent_storage, request: gr.Request):
+    def interact_with_agent(
+        self,
+        task_input,
+        stored_messages,
+        session_state,
+        session_uuid,
+        consent_storage,
+        request: gr.Request,
+    ):
         interaction_id = generate_interaction_id(session_uuid)
         desktop = get_or_create_sandbox(session_uuid)
 
@@ -502,12 +535,30 @@ class EnrichedGradioUI(GradioUI):
             stored_messages.append(gr.ChatMessage(role="user", content=task_input))
             yield stored_messages
 
-            for msg in stream_to_gradio(session_state["agent"], task=task_input, reset_agent_memory=False):
-                if hasattr(session_state["agent"], "last_marked_screenshot") and msg.content == "-----": # Append the last screenshot before the end of step
-                    stored_messages.append(gr.ChatMessage(
-                        role="assistant",
-                        content={"path": session_state["agent"].last_marked_screenshot.to_string(), "mime_type": "image/png"},
-                    ))
+            screenshot_bytes = session_state["agent"].desktop.screenshot(format="bytes")
+            initial_screenshot = Image.open(BytesIO(screenshot_bytes))
+
+            for msg in stream_to_gradio(
+                session_state["agent"],
+                task=task_input,
+                task_images=[initial_screenshot],
+                reset_agent_memory=False,
+            ):
+                if (
+                    hasattr(session_state["agent"], "last_marked_screenshot")
+                    and msg.content == "-----"
+                ):  # Append the last screenshot before the end of step
+                    stored_messages.append(
+                        gr.ChatMessage(
+                            role="assistant",
+                            content={
+                                "path": session_state[
+                                    "agent"
+                                ].last_marked_screenshot.to_string(),
+                                "mime_type": "image/png",
+                            },
+                        )
+                    )
                 stored_messages.append(msg)
                 yield stored_messages
 
@@ -516,37 +567,44 @@ class EnrichedGradioUI(GradioUI):
             #     summary = get_agent_summary_erase_images(session_state["agent"])
             #     save_final_status(data_dir, "completed", summary = summary)
             yield stored_messages
-    
+
         except Exception as e:
-            error_message=f"Error in interaction: {str(e)}"
+            error_message = f"Error in interaction: {str(e)}"
             raise e
             print(error_message)
-            stored_messages.append(gr.ChatMessage(role="assistant", content="Run failed:\n" + error_message))
+            stored_messages.append(
+                gr.ChatMessage(
+                    role="assistant", content="Run failed:\n" + error_message
+                )
+            )
             if consent_storage:
                 summary = get_agent_summary_erase_images(session_state["agent"])
-                save_final_status(data_dir, "failed", summary=summary, error_message=error_message)
+                save_final_status(
+                    data_dir, "failed", summary=summary, error_message=error_message
+                )
             yield stored_messages
         finally:
             if consent_storage:
                 upload_to_hf_and_remove(data_dir)
 
-theme = gr.themes.Default(font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue")
+
+theme = gr.themes.Default(
+    font=["Oxanium", "sans-serif"], primary_hue="amber", secondary_hue="blue"
+)
 
 # Create a Gradio app with Blocks
 with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
-    #Storing session hash in a state variable
+    # Storing session hash in a state variable
     session_uuid_state = gr.State(None)
-
-
 
     with gr.Row():
         sandbox_html = gr.HTML(
             value=sandbox_html_template.format(
                 stream_url="",
                 status_class="status-interactive",
-                status_text="Interactive"
+                status_text="Interactive",
             ),
-            label="Output"
+            label="Output",
         )
         with gr.Sidebar(position="left"):
             with Modal(visible=True) as modal:
@@ -560,7 +618,7 @@ _Please note that we store the task logs by default so **do not write any person
             task_input = gr.Textbox(
                 value="Find me pictures of cute puppies",
                 label="Enter your task below:",
-                elem_classes="primary-color-label"
+                elem_classes="primary-color-label",
             )
 
             run_btn = gr.Button("Let's go!", variant="primary")
@@ -575,9 +633,9 @@ _Please note that we store the task logs by default so **do not write any person
                     "Go on the Hugging Face Hub, find the space for FLUX1.dev, then generate a picture of the Golden Gate bridge",
                     "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background",
                 ],
-                inputs = task_input,
-                label= "Example Tasks",
-                examples_per_page=4
+                inputs=task_input,
+                label="Example Tasks",
+                examples_per_page=4,
             )
 
             session_state = gr.State({})
@@ -585,7 +643,9 @@ _Please note that we store the task logs by default so **do not write any person
 
             minimalist_toggle = gr.Checkbox(label="Innie/Outie", value=False)
 
-            consent_storage = gr.Checkbox(label="Store task and agent trace?", value=True)
+            consent_storage = gr.Checkbox(
+                label="Store task and agent trace?", value=True
+            )
 
             def apply_theme(minimalist_mode: bool):
                 if not minimalist_mode:
@@ -631,16 +691,10 @@ _Please note that we store the task logs by default so **do not write any person
             # Hidden HTML element to inject CSS dynamically
             theme_styles = gr.HTML(apply_theme(False), visible=False)
             minimalist_toggle.change(
-                fn=apply_theme,
-                inputs=[minimalist_toggle],
-                outputs=[theme_styles]
+                fn=apply_theme, inputs=[minimalist_toggle], outputs=[theme_styles]
             )
 
-            footer = gr.HTML(
-                value=footer_html,
-                label="Header"
-            )
-
+            footer = gr.HTML(value=footer_html, label="Header")
 
     chatbot_display = gr.Chatbot(
         elem_id="chatbot",
@@ -653,7 +707,9 @@ _Please note that we store the task logs by default so **do not write any person
         resizable=True,
     )
 
-    agent_ui = EnrichedGradioUI(CodeAgent(tools=[], model=None, name="ok", description="ok"))
+    agent_ui = EnrichedGradioUI(
+        CodeAgent(tools=[], model=None, name="ok", description="ok")
+    )
 
     stop_btn = gr.Button("Stop the agent!", variant="huggingface")
 
@@ -664,9 +720,9 @@ _Please note that we store the task logs by default so **do not write any person
 
         if not os.path.exists(log_file):
             return "Waiting for machine from the future to boot..."
-        
+
         try:
-            with open(log_file, 'r') as f:
+            with open(log_file, "r") as f:
                 lines = f.readlines()
                 return "".join(lines[-tail:] if len(lines) > tail else lines)
         except Exception as e:
@@ -685,21 +741,25 @@ _Please note that we store the task logs by default so **do not write any person
     is_interactive = gr.Checkbox(value=True, visible=False)
 
     # Chain the events
-    run_event = run_btn.click(
-        fn=clear_and_set_view_only,
-        inputs=[task_input, session_uuid_state], 
-        outputs=[sandbox_html]
-    ).then(
-        agent_ui.interact_with_agent,
-        inputs=[task_input, stored_messages, session_state, session_uuid_state, consent_storage],
-        outputs=[chatbot_display]
-    ).then(
-        fn=set_interactive,
-        inputs=[session_uuid_state],
-        outputs=[sandbox_html]
-    ).then(
-        fn=reactivate_stop_btn,
-        outputs=[stop_btn]
+    run_event = (
+        run_btn.click(
+            fn=clear_and_set_view_only,
+            inputs=[task_input, session_uuid_state],
+            outputs=[sandbox_html],
+        )
+        .then(
+            agent_ui.interact_with_agent,
+            inputs=[
+                task_input,
+                stored_messages,
+                session_state,
+                session_uuid_state,
+                consent_storage,
+            ],
+            outputs=[chatbot_display],
+        )
+        .then(fn=set_interactive, inputs=[session_uuid_state], outputs=[sandbox_html])
+        .then(fn=reactivate_stop_btn, outputs=[stop_btn])
     )
 
     def interrupt_agent(session_state):
@@ -716,7 +776,7 @@ _Please note that we store the task logs by default so **do not write any person
 
     # replay_btn.click(
     #     fn=clear_and_set_view_only,
-    #     inputs=[task_input], 
+    #     inputs=[task_input],
     #     outputs=[sandbox_html]
     # ).then(
     #     set_logs_source,
