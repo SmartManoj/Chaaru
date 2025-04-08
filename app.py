@@ -627,7 +627,7 @@ _Please note that we store the task logs by default so **do not write any person
                 examples=[
                     "Check the commuting time between Bern and Zurich on Google maps",
                     "Write 'Hello World' in a text editor",
-                    "When was Temple Grandin introduced to the American Academy of Arts and Sciences, according to Wikipedia?",
+                    "Can you give me Bertrand Russel's 'Teapot analogy' as stated in his entry on Stanford Encyclopedia of Philosophy?",
                     "Search a flight from Rome to Berlin for tomorrow on Skyscanner",
                     "What' s the name of the pond just south of Château de Fontainebleau in Google maps?",
                     "Go on the Hugging Face Hub, find the space for FLUX1.dev, then generate a picture of the Golden Gate bridge",

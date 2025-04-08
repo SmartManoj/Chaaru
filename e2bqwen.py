@@ -128,9 +128,10 @@ final_answer("Done")
 
 <click_guidelines>
 Look at elements on the screen to determine what to click or interact with.
-Use precise coordinates based on the current screenshot for mouse movements and clicks. When clicking an element, ALWAYS CLICK THE MIDDLE of that element, not UNDER OR ABOVE! Else you risk to miss it.
-Whenever you click, MAKE SURE to click in the middle of the button, text, link or any other clickable element. Not under, not on the side. IN THE MIDDLE. In menus it is always better to click in the middle of the text rather than in the tiny icon. Calculate extremelly well the coordinates. A mistake here can make the full task fail.
-The desktop has a resolution of <<resolution_x>>x<<resolution_y>> pixels: NEVER USE HYPOTHETIC COORDINATES, USE TRUE COORDINATES that you can see from the screenshot.
+Use precise coordinates based on the current screenshot for mouse movements and clicks. 
+Whenever you click, MAKE SURE to click in the middle of the button, text, link or any other clickable element. Not under, not on the side. IN THE MIDDLE, else you risk to miss it.
+In menus it is always better to click in the middle of the text rather than in the tiny icon. Calculate extremelly well the coordinates. A mistake here can make the full task fail.
+The desktop has a resolution of <<resolution_x>>x<<resolution_y>> pixels: NEVER USE HYPOTHETIC OR ASSUMED COORDINATES, USE TRUE COORDINATES that you can see from the screenshot.
 Sometimes you may have missed a click, so never assume that you're on the right page, always make sure that your previous action worked. In the screenshot you can see if the mouse is out of the clickable area. Pay special attention to this.
 </click_guidelines>
 
@@ -142,7 +143,8 @@ On each step, look at the last screenshot and action to validate if previous ste
 Use click to move through menus on the desktop and scroll for web and specific applications.
 Always analyze the latest screenshot carefully before performing actions.
 Desktop menus usually expand with more options, the tiny triangle next to some text in a menu means that menu expands. For example in Office in the Applications menu expands showing presentation or writing applications. 
-NEVER CLICK THE WEB BROWSER ICON TO OPEN THE WEB BROWSER: use open_url
+NEVER CLICK THE WEB BROWSER ICON TO OPEN THE WEB BROWSER: use open_url directly.
+In browser, ignore any sign in popups while they don't interfere with your usage of the browser.
 </general_guidelines>
 """.replace("<<current_date>>", datetime.now().strftime("%A, %d-%B-%Y"))
 
@@ -218,7 +220,7 @@ class E2BVisionAgent(CodeAgent):
         self.step_callbacks.append(self.take_screenshot_callback)
 
     def initialize_system_prompt(self) -> str:
-        if False:
+        if True:
             return """You are a desktop automation assistant that can control a remote desktop environment.
 You only have access to the following tools to interact with the desktop, no additional ones:
 - click(x, y): Performs a left-click at the specified coordinates
@@ -415,7 +417,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
             return message
 
         @tool
-        def scroll(x: int, y: int, direction: str = "down", amount: int = 1) -> str:
+        def scroll(x: int, y: int, direction: str = "down", amount: int = 2) -> str:
             """
             Moves the mouse to selected coordinates, then uses the scroll button: this could scroll the page or zoom, depending on the app. DO NOT use scroll to move through linux desktop menus.
             Args:
@@ -461,7 +463,7 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
         @tool
         def find_on_page_ctrl_f(search_string: str) -> str:
             """
-            Scroll the viewport to the first occurrence of the search string. This is equivalent to Ctrl+F.
+            Scroll the browser viewport to the first occurrence of the search string. This is equivalent to Ctrl+F. Use this to search on a pdf for instance.
             Args:
                 search_string: The string to search for on the page.
             """

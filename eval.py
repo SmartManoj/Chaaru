@@ -234,6 +234,8 @@ def run_evaluation(examples, num_runs, output_dir, max_parallel, max_steps):
     eval_dir = os.path.join(output_dir, f"eval_{timestamp}_{git_hash}")
     os.makedirs(eval_dir, exist_ok=True)
 
+    start_time = datetime.now()
+
     thread_safe_print(f"Starting evaluation. Results will be saved to: {eval_dir}")
     thread_safe_print(
         f"Will run {len(examples)} examples, {num_runs} times each, with {max_parallel} parallel examples"
@@ -316,6 +318,8 @@ def run_evaluation(examples, num_runs, output_dir, max_parallel, max_steps):
         success_rate = summary["example_success_rates"][example_name] * 100
         thread_safe_print(f"Example '{example_name}': {success_rate:.1f}% success")
 
+    print("Total duration:", datetime.now() - start_time)
+
     return eval_dir
 
 
@@ -343,14 +347,15 @@ def main():
 
     # Examples from the original code
     examples = {
-        "puppies": "Find me pictures of cute puppies",
-        "commute": "Check the commuting time between Bern and Zurich on Google maps",
-        "hello": "Write 'Hello World' in a text editor",
-        "wiki": "When was Temple Grandin introduced to the American Academy of Arts and Sciences, according to Wikipedia?",
-        "flight": "Search a flight from Rome to Berlin for May 3rd, 2025.",
-        "pond": "What's the name of the pond just south of Château de Fontainebleau in Google maps?",
-        "flux": "Go on the Hugging Face Hub, find a Space for FLUX1.dev, and generate a picture of the Golden Gate bridge.",
-        "hf": "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background",
+        # "puppies": "Find me pictures of cute puppies",
+        # "commute": "Check the commuting time between Bern and Zurich on Google maps",
+        # "hello": "Write 'Hello World' in a text editor",
+        # "wiki": "When was Temple Grandin introduced to the American Academy of Arts and Sciences, according to Wikipedia?",
+        "quote": "Can you give me Bertrand Russel's 'Teapot analogy' as stated in his entry on Stanford Encyclopedia of Philosophy?",
+        # "flight": "Search a flight from Rome to Berlin for May 3rd, 2025.",
+        # "pond": "What's the name of the pond just south of Château de Fontainebleau in Google maps?",
+        # "flux": "Go on the Hugging Face Hub, find a Space for FLUX1.dev, and generate a picture of the Golden Gate bridge.",
+        # "hf": "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background",
     }
 
     # Create output directory if it doesn't exist
