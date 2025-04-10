@@ -345,7 +345,6 @@ def main():
         "puppies": "Find me pictures of cute puppies",
         "gmaps": "Use Google Maps to find the Hugging Face HQ in Paris",
         "wiki": "Go to Wikipedia and find what happend on April 4th",
-        "hello": "Write 'Hello World' in a text editor",
         "commute": "Find out the travel time by train from Bern to Basel on Google Maps",
         "hf_space": "Go to Hugging Face Spaces and then find the Space flux.1 schnell. Use the space to generate an image of a GPU",
     }

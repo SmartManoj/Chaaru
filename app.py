@@ -165,7 +165,7 @@ sandbox_html_template = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&display=swap');
 </style>
-<h1 style="color:var(--color-accent);margin:0;">smolagent's Open Computer Agent - Input your task and run your personal assistant!<h1>
+<h1 style="color:var(--color-accent);margin:0;">smolagent's Open Computer Agent - a sandbox for computer use agents!<h1>
 <div class="sandbox-container" style="margin:0;">
     <div class="status-bar">
         <div class="status-indicator {status_class}"></div>
@@ -587,13 +587,11 @@ _Please note that we store the task logs by default so **do not write any person
 
             gr.Examples(
                 examples=[
-                    "Check the commuting time between Bern and Zurich on Google maps",
-                    "Write 'Hello World' in a text editor",
-                    "Can you give me Bertrand Russel's 'Teapot analogy' as stated in his entry on Stanford Encyclopedia of Philosophy?",
-                    "Search a flight from Rome to Berlin for tomorrow on Skyscanner",
-                    "What' s the name of the pond just south of Château de Fontainebleau in Google maps?",
-                    "Go on the Hugging Face Hub, find the space for FLUX1.dev, then generate a picture of the Golden Gate bridge",
-                    "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background",
+                    "Find me pictures of cute puppies",
+                    "Use Google Maps to find the Hugging Face HQ in Paris",
+                    "Go to Wikipedia and find what happend on April 4th",
+                    "Find out the travel time by train from Bern to Basel on Google Maps",
+                    "Go to Hugging Face Spaces and then find the Space flux.1 schnell. Use the space to generate an image of a GPU",
                 ],
                 inputs=task_input,
                 label="Example Tasks",
