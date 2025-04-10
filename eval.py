@@ -9,7 +9,7 @@ from e2b_desktop import Sandbox
 from huggingface_hub import get_token
 from io import BytesIO
 from PIL import Image
-from e2bqwen import QwenVLAPIModel, E2BVisionAgent
+from e2bqwen import QwenVLAPIModel, E2BVisionAgent, get_agent_summary_erase_images
 
 from dotenv import load_dotenv
 
@@ -76,14 +76,6 @@ def create_agent(data_dir, desktop, max_steps: int):
         verbosity_level=2,
         planning_interval=10,
     )
-
-
-def get_agent_summary_erase_images(agent):
-    """Get agent summary and erase images to save space"""
-    for memory_step in agent.memory.steps:
-        if getattr(memory_step, "observations_images", None):
-            memory_step.observations_images = None
-    return agent.memory.get_succinct_steps()
 
 
 def chat_message_to_json(obj):
@@ -179,6 +171,7 @@ def run_example_once(example_name, example_text, run_index, example_dir, max_ste
             )
             result = {"status": "failed", "run_dir": run_dir, "error": error_message}
     except Exception as e:
+        raise e
         error_message = f"Error setting up sandbox: {str(e)}"
         thread_safe_print(
             f"  ✗ Example '{example_name}' run {run_index} failed: {error_message}"
@@ -195,6 +188,7 @@ def run_example_once(example_name, example_text, run_index, example_dir, max_ste
 
     return result
 
+import traceback
 
 def run_example(example_name, example_text, num_runs, example_dir, max_steps):
     """Run a single example multiple times using threads for each run"""
@@ -217,8 +211,9 @@ def run_example(example_name, example_text, num_runs, example_dir, max_steps):
                 result = future.result()
                 results.append(result)
             except Exception as exc:
+                error_traceback = traceback.format_exc()
                 thread_safe_print(
-                    f"  ✗ Run {run_index} for '{example_name}' generated an exception: {exc}"
+                    f"  ✗ Run {run_index} for '{example_name}' generated an exception:\n{error_traceback}"
                 )
                 results.append(
                     {"status": "error", "run_index": run_index, "error": str(exc)}
@@ -347,15 +342,12 @@ def main():
 
     # Examples from the original code
     examples = {
-        # "puppies": "Find me pictures of cute puppies",
-        # "commute": "Check the commuting time between Bern and Zurich on Google maps",
-        # "hello": "Write 'Hello World' in a text editor",
-        # "wiki": "When was Temple Grandin introduced to the American Academy of Arts and Sciences, according to Wikipedia?",
-        "quote": "Can you give me Bertrand Russel's 'Teapot analogy' as stated in his entry on Stanford Encyclopedia of Philosophy?",
-        # "flight": "Search a flight from Rome to Berlin for May 3rd, 2025.",
-        # "pond": "What's the name of the pond just south of Château de Fontainebleau in Google maps?",
-        # "flux": "Go on the Hugging Face Hub, find a Space for FLUX1.dev, and generate a picture of the Golden Gate bridge.",
-        # "hf": "Download me a picture of a puppy from Google, then head to Hugging Face, find a Space dedicated to background removal, and use it to remove the puppy picture's background",
+        "puppies": "Find me pictures of cute puppies",
+        "gmaps": "Use Google Maps to find the Hugging Face HQ in Paris",
+        "wiki": "Go to Wikipedia and find what happend on April 4th",
+        "hello": "Write 'Hello World' in a text editor",
+        "commute": "Find out how long it takes to travel by train from Bern and Basel",
+        "hf_space": "Go to Hugging Face Spaces and then find the Space flux.1 schnell. Use the space to generate an image of a GPU",
     }
 
     # Create output directory if it doesn't exist

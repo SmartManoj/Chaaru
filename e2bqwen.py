@@ -170,6 +170,15 @@ def draw_marker_on_image(image_copy, click_coordinates):
     return image_copy
 
 
+def get_agent_summary_erase_images(agent):
+    for memory_step in agent.memory.steps:
+        if hasattr(memory_step, "observations_images"):
+            memory_step.observations_images = None
+        if hasattr(memory_step, "task_images"):
+            memory_step.task_images = None
+    return agent.write_memory_to_messages()
+
+
 class E2BVisionAgent(CodeAgent):
     """Agent for e2b desktop automation with Qwen2.5VL vision capabilities"""
 
@@ -220,7 +229,7 @@ class E2BVisionAgent(CodeAgent):
         self.step_callbacks.append(self.take_screenshot_callback)
 
     def initialize_system_prompt(self) -> str:
-        if True:
+        if False:
             return """You are a desktop automation assistant that can control a remote desktop environment.
 You only have access to the following tools to interact with the desktop, no additional ones:
 - click(x, y): Performs a left-click at the specified coordinates
@@ -509,9 +518,9 @@ REMEMBER TO ALWAYS CLICK IN THE MIDDLE OF THE TEXT, NOT ON THE SIDE, NOT UNDER.
 
         image_copy = image.copy()
 
-        # if getattr(self, "click_coordinates", None):
-        #     print("DRAWING MARKER")
-        #     image_copy = draw_marker_on_image(image_copy, self.click_coordinates)
+        if getattr(self, "click_coordinates", None):
+            print("DRAWING MARKER")
+            image_copy = draw_marker_on_image(image_copy, self.click_coordinates)
 
         self.last_marked_screenshot = AgentImage(screenshot_path)
         print(f"Saved screenshot for step {current_step} to {screenshot_path}")
@@ -570,7 +579,7 @@ class QwenVLAPIModel(Model):
         super().__init__()
         self.model_id = model_id
         self.base_model = HfApiModel(
-            model_id="https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud",
+            model_id="https://ahbeihft09ulicbf.us-east-1.aws.endpoints.huggingface.cloud",
             token=hf_token,
             max_tokens=4096,
         )

@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from smolagents import CodeAgent
 from smolagents.gradio_ui import GradioUI, stream_to_gradio
 
-from e2bqwen import QwenVLAPIModel, E2BVisionAgent
+from e2bqwen import QwenVLAPIModel, E2BVisionAgent, get_agent_summary_erase_images
 
 load_dotenv(override=True)
 
@@ -420,44 +420,13 @@ def generate_interaction_id(session_uuid):
     return f"{session_uuid}_{int(time.time())}"
 
 
-def chat_message_to_json(obj):
-    """Custom JSON serializer for ChatMessage and related objects"""
-    if hasattr(obj, "__dict__"):
-        # Create a copy of the object's __dict__ to avoid modifying the original
-        result = obj.__dict__.copy()
-
-        # Remove the 'raw' field which may contain non-serializable data
-        if "raw" in result:
-            del result["raw"]
-
-        # Process the content or tool_calls if they exist
-        if "content" in result and result["content"] is not None:
-            if hasattr(result["content"], "__dict__"):
-                result["content"] = chat_message_to_json(result["content"])
-
-        if "tool_calls" in result and result["tool_calls"] is not None:
-            result["tool_calls"] = [
-                chat_message_to_json(tc) for tc in result["tool_calls"]
-            ]
-
-        return result
-    elif isinstance(obj, (list, tuple)):
-        return [chat_message_to_json(item) for item in obj]
-    else:
-        return obj
-
-
 def save_final_status(folder, status: str, summary, error_message=None) -> None:
-    metadata_path = os.path.join(folder, "metadata.json")
-    output_file = open(metadata_path, "w")
-    output_file.write(
-        json.dumps(
-            {"status": status, "summary": summary, "error_message": error_message},
-            default=chat_message_to_json,
+    with open(os.path.join(folder, "metadata.json"), "w") as output_file:
+        output_file.write(
+            json.dumps(
+                {"status": status, "summary": summary, "error_message": error_message},
+            )
         )
-    )
-    output_file.close()
-
 
 def extract_browser_uuid(js_uuid):
     print(f"[BROWSER] Got browser UUID from JS: {js_uuid}")
@@ -492,13 +461,6 @@ def create_agent(data_dir, desktop):
         # planning_interval=10,
         use_v1_prompt=True,
     )
-
-
-def get_agent_summary_erase_images(agent):
-    for memory_step in agent.memory.steps:
-        if getattr(memory_step, "observations_images", None):
-            memory_step.observations_images = None
-    return agent.memory.get_succinct_steps()
 
 
 class EnrichedGradioUI(GradioUI):
@@ -563,9 +525,9 @@ class EnrichedGradioUI(GradioUI):
                 yield stored_messages
 
             # THIS ERASES IMAGES FROM AGENT MEMORY, USE WITH CAUTION
-            # if consent_storage:
-            #     summary = get_agent_summary_erase_images(session_state["agent"])
-            #     save_final_status(data_dir, "completed", summary = summary)
+            if consent_storage:
+                summary = get_agent_summary_erase_images(session_state["agent"])
+                save_final_status(data_dir, "completed", summary = summary)
             yield stored_messages
 
         except Exception as e:
