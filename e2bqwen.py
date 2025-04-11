@@ -50,7 +50,8 @@ The desktop has a resolution of <<resolution_x>>x<<resolution_y>> pixels, take i
 Use precise coordinates based on the current screenshot for mouse movements and clicks. 
 Whenever you click, MAKE SURE to click in the middle of the button, text, link or any other clickable element. Not under, not on the side. IN THE MIDDLE, else you risk to miss it.
 In menus it is always better to click in the middle of the text rather than in the tiny icon. Calculate extremelly well the coordinates. A mistake here can make the full task fail.
-Sometimes you may have missed a click, so never assume that you're on the right page, always make sure that your previous action worked. In the screenshot you can see if the mouse pointer is off of the targeted element, pay special attention to it.
+Sometimes you may have missed a click, so never assume that you're on the right page, always make sure that your previous action worked.
+In the screenshot you will see a green crosshair displayed over the position of your last click: this way can inspect if the mouse pointer is off of the targeted element, pay special attention to it.
 </click_guidelines>
 
 <task_resolution_example>
@@ -409,9 +410,9 @@ class E2BVisionAgent(CodeAgent):
 
         image_copy = image.copy()
 
-        # if getattr(self, "click_coordinates", None):
-        #     print("DRAWING MARKER")
-        #     image_copy = draw_marker_on_image(image_copy, self.click_coordinates)
+        if getattr(self, "click_coordinates", None):
+            print("DRAWING MARKER")
+            image_copy = draw_marker_on_image(image_copy, self.click_coordinates)
 
         self.last_marked_screenshot = AgentImage(screenshot_path)
         print(f"Saved screenshot for step {current_step} to {screenshot_path}")
