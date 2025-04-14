@@ -488,10 +488,8 @@ class EnrichedGradioUI(GradioUI):
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
 
-        if "agent" in session_state:
-            session_state["agent"].data_dir = data_dir
-        else:
-            session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop)
+        # Always re-create an agent from scratch, else Qwen-VL gets confused with past history
+        session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop)
 
         try:
             stored_messages.append(gr.ChatMessage(role="user", content=task_input))
