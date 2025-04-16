@@ -1,21 +1,20 @@
 import os
 import time
+import unicodedata
+from datetime import datetime
 from io import BytesIO
 from typing import Any, Dict, List, Optional
-import unicodedata
 
 # E2B imports
 from e2b_desktop import Sandbox
-from PIL import Image
+from PIL import Image, ImageDraw
 
 # SmolaAgents imports
-from smolagents import CodeAgent, tool, HfApiModel
+from smolagents import CodeAgent, HfApiModel, tool
+from smolagents.agent_types import AgentImage
 from smolagents.memory import ActionStep, TaskStep
 from smolagents.models import ChatMessage, Model
 from smolagents.monitoring import LogLevel
-from smolagents.agent_types import AgentImage
-from PIL import ImageDraw
-from datetime import datetime
 
 E2B_SYSTEM_PROMPT_TEMPLATE = """You are a desktop automation assistant that can control a remote desktop environment. The current date is <<current_date>>.
 
@@ -426,7 +425,7 @@ class E2BVisionAgent(CodeAgent):
             ):
                 previous_memory_step.observations_images = None
             elif isinstance(previous_memory_step, TaskStep):
-                previous_memory_step.observations_images = None
+                previous_memory_step.task_images = None
 
             if (
                 isinstance(previous_memory_step, ActionStep)
