@@ -1,21 +1,21 @@
-import gradio as gr
-import os
 import json
+import os
 import shutil
-import uuid
 import time
+import uuid
+from io import BytesIO
 from threading import Timer
-from huggingface_hub import upload_folder, login
+
+import gradio as gr
+from dotenv import load_dotenv
 from e2b_desktop import Sandbox
 from gradio_modal import Modal
-from io import BytesIO
+from huggingface_hub import login, upload_folder
 from PIL import Image
-from dotenv import load_dotenv
-
 from smolagents import CodeAgent
 from smolagents.gradio_ui import GradioUI, stream_to_gradio
 
-from e2bqwen import QwenVLAPIModel, E2BVisionAgent, get_agent_summary_erase_images
+from e2bqwen import E2BVisionAgent, QwenVLAPIModel, get_agent_summary_erase_images
 
 load_dotenv(override=True)
 
@@ -165,7 +165,8 @@ sandbox_html_template = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&display=swap');
 </style>
-<h1 style="color:var(--color-accent);margin:0;">smolagent's Open Computer Agent - a sandbox for computer use agents!<h1>
+<h1 style="color:var(--color-accent);margin:0;">Open Computer Agent<h1>
+<h3 style="color:var(--color-accent);margin:0;">Powered by [smolagents](https://github.com/huggingface/smolagents)<h3>
 <div class="sandbox-container" style="margin:0;">
     <div class="status-bar">
         <div class="status-indicator {status_class}"></div>
@@ -428,6 +429,7 @@ def save_final_status(folder, status: str, summary, error_message=None) -> None:
             )
         )
 
+
 def extract_browser_uuid(js_uuid):
     print(f"[BROWSER] Got browser UUID from JS: {js_uuid}")
     return js_uuid
@@ -525,7 +527,7 @@ class EnrichedGradioUI(GradioUI):
             # THIS ERASES IMAGES FROM AGENT MEMORY, USE WITH CAUTION
             if consent_storage:
                 summary = get_agent_summary_erase_images(session_state["agent"])
-                save_final_status(data_dir, "completed", summary = summary)
+                save_final_status(data_dir, "completed", summary=summary)
             yield stored_messages
 
         except Exception as e:
@@ -603,6 +605,10 @@ _Please note that we store the task logs by default so **do not write any person
 
             consent_storage = gr.Checkbox(
                 label="Store task and agent trace?", value=True
+            )
+
+            gr.Markdown(
+                """Type your task in the textbox above and click the button to start the agent. The first answer might take time to arrive."""
             )
 
             def apply_theme(minimalist_mode: bool):
