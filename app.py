@@ -165,8 +165,7 @@ sandbox_html_template = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&display=swap');
 </style>
-<h1 style="color:var(--color-accent);margin:0;">Open Computer Agent<h1>
-<h3 style="color:var(--color-accent);margin:0;">Powered by [smolagents](https://github.com/huggingface/smolagents)<h3>
+    <h1 style="color:var(--color-accent);margin:0;">Open Computer Agent - <i>Powered by <a href="https://github.com/huggingface/smolagents">smolagents</a></i><h1>
 <div class="sandbox-container" style="margin:0;">
     <div class="status-bar">
         <div class="status-indicator {status_class}"></div>
