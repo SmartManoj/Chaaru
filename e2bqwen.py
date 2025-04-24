@@ -470,7 +470,7 @@ class QwenVLAPIModel(Model):
         super().__init__()
         self.model_id = model_id
         self.base_model = HfApiModel(
-            model_id="https://gs4kgjz2o8aoqet7.us-east-1.aws.endpoints.huggingface.cloud",
+            model_id="https://ahbeihft09ulicbf.us-east-1.aws.endpoints.huggingface.cloud",
             token=hf_token,
             max_tokens=4096,
         )
