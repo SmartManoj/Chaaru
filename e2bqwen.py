@@ -491,11 +491,12 @@ class QwenVLAPIModel(Model):
             message = self.base_model(messages, stop_sequences, **kwargs)
             return message
         except Exception as e:
-            print(f"Base model failed with error: {e}. Calling fallback model.")
+            raise e
+#            print(f"Base model failed with error: {e}. Calling fallback model.")
 
-        # Continue to fallback
-        try:
-            message = self.fallback_model(messages, stop_sequences, **kwargs)
-            return message
-        except Exception as e:
-            raise Exception(f"Both endpoints failed. Last error: {e}")
+#        # Continue to fallback
+#        try:
+#            message = self.fallback_model(messages, stop_sequences, **kwargs)
+#            return message
+#        except Exception as e:
+#            raise Exception(f"Both endpoints failed. Last error: {e}")
