@@ -591,7 +591,7 @@ _Please note that we store the task logs by default so **do not write any person
                     "Use Google Maps to find the Hugging Face HQ in Paris",
                     "Go to Wikipedia and find what happend on April 4th",
                     "Find out the travel time by train from Bern to Basel on Google Maps",
-                    "Go to Hugging Face Spaces and then find the Space flux.1 schnell. Use the space to generate an image of a GPU",
+                    "Go to Hugging Face Spaces and then find the Space flux.1 schnell. Use the space to generate an image with the prompt 'a field of gpus'",
                 ],
                 inputs=task_input,
                 label="Example Tasks",
