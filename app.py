@@ -608,15 +608,9 @@ _Please note that we store the task logs by default so **do not write any person
                 label="Store task and agent trace?", value=True
             )
 
-            gr.Markdown(
-                """\
-**Data**: You can opt-out of storing your trace if you uncheck the box above.\
-\
-**Time**: The agent's first step can take a few seconds. Be patient!\
-\
-**Captcha**: Sometimes the VMs get flagged for weird behaviour and are blocked with a captcha. \
-The models are not quite there, yet - best to interrupt the agent and solve it manually."""
-            )
+            gr.Markdown("**Data**: You can opt-out of storing your trace if you uncheck the box above.")
+            gr.Markdown("**Time**: The agent's first step can take a few seconds. Be patient!")
+            gr.Markdown("Captcha**: Sometimes the VMs get flagged for weird behaviour and are blocked with a captcha. The models are not quite there, yet - best to interrupt the agent and solve it manually.")
 
             def apply_theme(minimalist_mode: bool):
                 if not minimalist_mode:
