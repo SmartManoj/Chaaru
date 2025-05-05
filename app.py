@@ -588,7 +588,6 @@ _Please note that we store the task logs by default so **do not write any person
 
             gr.Examples(
                 examples=[
-                    "Find me pictures of cute puppies",
                     "Use Google Maps to find the Hugging Face HQ in Paris",
                     "Go to Wikipedia and find what happend on April 4th",
                     "Find out the travel time by train from Bern to Basel on Google Maps",
