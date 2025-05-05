@@ -609,7 +609,13 @@ _Please note that we store the task logs by default so **do not write any person
             )
 
             gr.Markdown(
-                """Type your task in the textbox above and click the button to start the agent. The first answer might take time to arrive."""
+                """\
+**Data**: You can opt-out of storing your trace if you uncheck the box above.\
+\
+**Time**: The agent's first step can take a few seconds. Be patient!\
+\
+**Captcha**: Sometimes the VMs get flagged for weird behaviour and are blocked with a captcha. \
+The models are not quite there, yet - best to interrupt the agent and solve it manually."""
             )
 
             def apply_theme(minimalist_mode: bool):
