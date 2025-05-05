@@ -385,6 +385,8 @@ def get_or_create_sandbox(session_uuid):
     setup_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}' | sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
     desktop.commands.run(setup_cmd)
 
+    print(f"Sandbox ID for session {session_uuid} is {desktop.sandbox_id}.")
+
     SANDBOXES[session_uuid] = desktop
     SANDBOX_METADATA[session_uuid] = {
         "created_at": current_time,
