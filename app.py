@@ -438,7 +438,7 @@ def extract_browser_uuid(js_uuid):
     return js_uuid
 
 
-def initialize_session(request: gr.Request, interactive_mode, browser_uuid):
+def initialize_session(interactive_mode, browser_uuid):
     if not browser_uuid:
         new_uuid = str(uuid.uuid4())
         print(f"[LOAD] No UUID from browser, generating: {new_uuid}")
@@ -609,9 +609,15 @@ _Please note that we store the task logs by default so **do not write any person
                 label="Store task and agent trace?", value=True
             )
 
-            gr.Markdown("**Data**: You can opt-out of storing your trace if you uncheck the box above.")
-            gr.Markdown("**Time**: The agent's first step can take a few seconds. Be patient!")
-            gr.Markdown("**Captcha**: Sometimes the VMs get flagged for weird behaviour and are blocked with a captcha. The models are not quite there, yet - best to interrupt the agent and solve it manually.")
+            gr.Markdown(
+                "**Data**: You can opt-out of storing your trace if you uncheck the box above."
+            )
+            gr.Markdown(
+                "**Time**: The agent's first step can take a few seconds. Be patient!"
+            )
+            gr.Markdown(
+                "**Captcha**: Sometimes the VMs get flagged for weird behaviour and are blocked with a captcha. The models are not quite there, yet - best to interrupt the agent and solve it manually."
+            )
 
             def apply_theme(minimalist_mode: bool):
                 if not minimalist_mode:
