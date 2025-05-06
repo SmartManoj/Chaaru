@@ -591,7 +591,7 @@ _Please note that we store the task logs by default so **do not write any person
             gr.Examples(
                 examples=[
                     "Use Google Maps to find the Hugging Face HQ in Paris",
-                    "Go to Wikipedia and find what happend on April 4th",
+                    "Go to Wikipedia and find what happened on April 4th",
                     "Find out the travel time by train from Bern to Basel on Google Maps",
                     "Go to Hugging Face Spaces and then find the Space flux.1 schnell. Use the space to generate an image with the prompt 'a field of gpus'",
                 ],
@@ -749,7 +749,7 @@ _Please note that we store the task logs by default so **do not write any person
     ).then(
         fn=initialize_session,
         js="() => localStorage.getItem('gradio-session-uuid') || (() => { const id = self.crypto.randomUUID(); localStorage.setItem('gradio-session-uuid', id); return id })()",
-        inputs=[is_interactive, session_uuid_state],
+        inputs=[is_interactive],
         outputs=[sandbox_html, session_uuid_state],
     )
 
