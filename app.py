@@ -561,7 +561,7 @@ theme = gr.themes.Default(
 with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
     # Storing session hash in a state variable
     session_uuid_state = gr.State(None)
-
+    print("Starting the app!")
     with gr.Row():
         sandbox_html = gr.HTML(
             value=sandbox_html_template.format(
@@ -752,7 +752,7 @@ _Please note that we store the task logs by default so **do not write any person
     ).then(
         fn=initialize_session,
         js="() => localStorage.getItem('gradio-session-uuid') || (() => { const id = self.crypto.randomUUID(); localStorage.setItem('gradio-session-uuid', id); return id })()",
-        inputs=[is_interactive],
+        inputs=[is_interactive, session_uuid_state],
         outputs=[sandbox_html, session_uuid_state],
     )
 
