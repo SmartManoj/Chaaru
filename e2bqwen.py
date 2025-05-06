@@ -475,8 +475,7 @@ class QwenVLAPIModel(Model):
             max_tokens=4096,
         )
         self.fallback_model = HfApiModel(
-            model_id,
-            provider="nebius",
+            model_id="https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud",
             token=hf_token,
             max_tokens=4096,
         )
@@ -491,12 +490,10 @@ class QwenVLAPIModel(Model):
             message = self.base_model(messages, stop_sequences, **kwargs)
             return message
         except Exception as e:
-            raise e
-#            print(f"Base model failed with error: {e}. Calling fallback model.")
-
-#        # Continue to fallback
-#        try:
-#            message = self.fallback_model(messages, stop_sequences, **kwargs)
-#            return message
-#        except Exception as e:
-#            raise Exception(f"Both endpoints failed. Last error: {e}")
+            print(f"Base model failed with error: {e}. Calling fallback model.")
+        # Continue to fallback
+        try:
+            message = self.fallback_model(messages, stop_sequences, **kwargs)
+            return message
+        except Exception as e:
+            raise Exception(f"Both endpoints failed. Last error: {e}")
