@@ -328,7 +328,7 @@ def upload_to_hf_and_remove(folder_path):
 
 
 def cleanup_sandboxes():
-    """Remove sandboxes that haven't been accessed for more than 5 minutes"""
+    """Remove sandboxes that haven't been accessed for longer than SANDBOX_TIMEOUT"""
     current_time = time.time()
     sandboxes_to_remove = []
 
@@ -365,6 +365,8 @@ def get_or_create_sandbox(session_uuid):
         print(f"Reusing Sandbox for  {session_uuid}")
         SANDBOX_METADATA[session_uuid]["last_accessed"] = current_time
         return SANDBOXES[session_uuid]
+    else:
+        print("No sandbox found, creating a new one")
 
     if session_uuid in SANDBOXES:
         try:
