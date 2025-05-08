@@ -1,4 +1,4 @@
-smolagents==1.14.0
+smolagents==1.15.0
 e2b_desktop==1.6.5
 Pillow
 huggingface_hub
