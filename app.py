@@ -535,7 +535,7 @@ class EnrichedGradioUI(GradioUI):
                 yield stored_messages
 
             # THIS ERASES IMAGES FROM AGENT MEMORY, USE WITH CAUTION
-            if consent_storage:
+            if consent_storage and not task_input in EXAMPLES:
                 summary = get_agent_summary_erase_images(session_state["agent"])
                 save_final_status(data_dir, "completed", summary=summary)
             yield stored_messages
