@@ -20,6 +20,13 @@ from e2bqwen import E2BVisionAgent, QwenVLAPIModel, get_agent_summary_erase_imag
 load_dotenv(override=True)
 
 
+EXAMPLES = [
+    "Use Google Maps to find the Hugging Face HQ in Paris",
+    "Go to Wikipedia and find what happened on April 4th",
+    "Find out the travel time by train from Bern to Basel on Google Maps",
+    "Go to Hugging Face Spaces and then find the Space flux.1 schnell. Use the space to generate an image with the prompt 'a field of gpus'",
+]
+
 E2B_API_KEY = os.getenv("E2B_API_KEY")
 SANDBOXES = {}
 SANDBOX_METADATA = {}
@@ -589,12 +596,7 @@ _Please note that we store the task logs by default so **do not write any person
             run_btn = gr.Button("Let's go!", variant="primary")
 
             gr.Examples(
-                examples=[
-                    "Use Google Maps to find the Hugging Face HQ in Paris",
-                    "Go to Wikipedia and find what happened on April 4th",
-                    "Find out the travel time by train from Bern to Basel on Google Maps",
-                    "Go to Hugging Face Spaces and then find the Space flux.1 schnell. Use the space to generate an image with the prompt 'a field of gpus'",
-                ],
+                examples=EXAMPLES,
                 inputs=task_input,
                 label="Example Tasks",
                 examples_per_page=4,
