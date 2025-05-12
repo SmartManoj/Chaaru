@@ -9,7 +9,7 @@ from e2b_desktop import Sandbox
 from huggingface_hub import get_token
 from io import BytesIO
 from PIL import Image
-from e2bqwen import QwenVLAPIModel, E2BVisionAgent, get_agent_summary_erase_images
+from e2bqwen import OpenRouterModel, E2BVisionAgent, get_agent_summary_erase_images
 
 from dotenv import load_dotenv
 
@@ -60,9 +60,8 @@ def get_git_hash():
 
 def create_agent(data_dir, desktop, max_steps: int):
     """Create an agent with the E2B desktop sandbox"""
-    model = QwenVLAPIModel(
-        model_id="Qwen/Qwen2.5-VL-72B-Instruct",
-        hf_token=HUGGINGFACE_API_KEY,
+    model = OpenRouterModel(
+        model_id=os.getenv("OPENROUTER_MODEL_ID", "Qwen/Qwen2.5-VL-72B-Instruct:free"),
     )
     # model = OpenAIServerModel(
     #     model_id="gpt-4o",

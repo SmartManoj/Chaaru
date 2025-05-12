@@ -3,6 +3,7 @@ import time
 import unicodedata
 from datetime import datetime
 from io import BytesIO
+from time import sleep
 from typing import Any, Dict, List, Optional
 
 # E2B imports
@@ -10,7 +11,7 @@ from e2b_desktop import Sandbox
 from PIL import Image, ImageDraw
 
 # SmolaAgents imports
-from smolagents import CodeAgent, HfApiModel, tool
+from smolagents import CodeAgent, HfApiModel, OpenAIServerModel, tool
 from smolagents.agent_types import AgentImage
 from smolagents.memory import ActionStep, TaskStep
 from smolagents.models import ChatMessage, Model
@@ -459,25 +460,19 @@ class E2BVisionAgent(CodeAgent):
             print("E2B sandbox terminated")
 
 
-class QwenVLAPIModel(Model):
+class OpenRouterModel(Model):
     """Model wrapper for Qwen2.5VL API with fallback mechanism"""
 
     def __init__(
         self,
-        model_id: str = "Qwen/Qwen2.5-VL-72B-Instruct",
-        hf_token: str = None,
+        model_id: str,
     ):
         super().__init__()
         self.model_id = model_id
-        self.base_model = HfApiModel(
-            model_id="https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud",
-            token=hf_token,
-            max_tokens=4096,
-        )
-        self.fallback_model = HfApiModel(
-            model_id="https://ahbeihft09ulicbf.us-east-1.aws.endpoints.huggingface.cloud",
-            token=hf_token,
-            max_tokens=4096,
+        self.base_model = OpenAIServerModel(
+            model_id=model_id,
+            api_key=os.getenv("OPENROUTER_API_KEY"),
+            api_base="https://openrouter.ai/api/v1"
         )
 
     def generate(
@@ -486,14 +481,12 @@ class QwenVLAPIModel(Model):
         stop_sequences: Optional[List[str]] = None,
         **kwargs,
     ) -> ChatMessage:
-        try:
-            message = self.base_model(messages, stop_sequences, **kwargs)
-            return message
-        except Exception as e:
-            print(f"Base model failed with error: {e}. Calling fallback model.")
-        # Continue to fallback
-        try:
-            message = self.fallback_model(messages, stop_sequences, **kwargs)
-            return message
-        except Exception as e:
-            raise Exception(f"Both endpoints failed. Last error: {e}")
+        for i in range(3):
+            try:
+                message = self.base_model(messages, stop_sequences, **kwargs)
+                return message
+            except Exception as e:
+                if i == 2:
+                    raise Exception(f"Both endpoints failed. Last error: {e}")
+                print(f"Got an error: {e}. Sleeping for 1 second and retrying...")
+                sleep(1)

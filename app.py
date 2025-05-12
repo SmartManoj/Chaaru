@@ -15,7 +15,7 @@ from PIL import Image
 from smolagents import CodeAgent
 from smolagents.gradio_ui import GradioUI, stream_to_gradio
 
-from e2bqwen import E2BVisionAgent, QwenVLAPIModel, get_agent_summary_erase_images
+from e2bqwen import E2BVisionAgent, OpenRouterModel, get_agent_summary_erase_images
 
 load_dotenv(override=True)
 
@@ -456,9 +456,8 @@ def initialize_session(interactive_mode, browser_uuid):
 
 
 def create_agent(data_dir, desktop):
-    model = QwenVLAPIModel(
-        model_id="Qwen/Qwen2.5-VL-72B-Instruct",
-        hf_token=hf_token,
+    model = OpenRouterModel(
+        model_id=os.getenv("OPENROUTER_MODEL_ID", "Qwen/Qwen2.5-VL-72B-Instruct:free"),
     )
 
     # model = OpenAIServerModel(
