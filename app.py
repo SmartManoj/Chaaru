@@ -12,10 +12,10 @@ from e2b_desktop import Sandbox
 from gradio_modal import Modal
 from huggingface_hub import login, upload_folder
 from PIL import Image
-from smolagents import CodeAgent
+from smolagents import CodeAgent, InferenceClientModel
 from smolagents.gradio_ui import GradioUI, stream_to_gradio
 
-from e2bqwen import E2BVisionAgent, QwenVLAPIModel, get_agent_summary_erase_images
+from e2bqwen import E2BVisionAgent, get_agent_summary_erase_images
 
 load_dotenv(override=True)
 
@@ -456,8 +456,8 @@ def initialize_session(interactive_mode, browser_uuid):
 
 
 def create_agent(data_dir, desktop):
-    model = QwenVLAPIModel(
-        model_id="Qwen/Qwen2.5-VL-72B-Instruct",
+    model = InferenceClientModel(
+        model_id="https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud",
         hf_token=hf_token,
     )
 
