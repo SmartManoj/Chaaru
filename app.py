@@ -760,4 +760,4 @@ _Please note that we store the task logs by default so **do not write any person
 # Launch the app
 if __name__ == "__main__":
     Timer(60, cleanup_sandboxes).start()  # Run every minute
-    demo.launch()
+    demo.launch(share=os.getenv("SHARE_GRADIO"))
