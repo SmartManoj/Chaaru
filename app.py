@@ -458,7 +458,7 @@ def initialize_session(interactive_mode, browser_uuid):
 def create_agent(data_dir, desktop):
     model = InferenceClientModel(
         model_id="https://n5wr7lfx6wp94tvl.us-east-1.aws.endpoints.huggingface.cloud",
-        hf_token=hf_token,
+        token=hf_token,
     )
 
     # model = OpenAIServerModel(
