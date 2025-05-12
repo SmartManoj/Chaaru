@@ -608,7 +608,7 @@ _Please note that we store the task logs by default so **do not write any person
             minimalist_toggle = gr.Checkbox(label="Innie/Outie", value=False)
 
             consent_storage = gr.Checkbox(
-                label="Store task and agent trace?", value=True
+                label="Store task and agent trace?", value=False
             )
 
             gr.Markdown(
