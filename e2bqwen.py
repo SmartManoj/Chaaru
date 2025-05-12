@@ -480,7 +480,7 @@ class QwenVLAPIModel(Model):
             max_tokens=4096,
         )
 
-    def __call__(
+    def generate(
         self,
         messages: List[Dict[str, Any]],
         stop_sequences: Optional[List[str]] = None,
