@@ -1,10 +1,12 @@
 import json
 import os
 import shutil
+import tempfile
 import time
 import uuid
 from io import BytesIO
 from threading import Timer
+from typing import Any
 
 import gradio as gr
 from dotenv import load_dotenv
@@ -13,9 +15,17 @@ from gradio_modal import Modal
 from huggingface_hub import login, upload_folder
 from PIL import Image
 from smolagents import CodeAgent, InferenceClientModel
-from smolagents.gradio_ui import GradioUI, stream_to_gradio
+from smolagents.gradio_ui import GradioUI
 
 from e2bqwen import E2BVisionAgent, get_agent_summary_erase_images
+from gradio_script import stream_to_gradio
+from scripts_and_styling import (
+    CUSTOM_JS,
+    FOOTER_HTML,
+    SANDBOX_CSS_TEMPLATE,
+    SANDBOX_HTML_TEMPLATE,
+    apply_theme,
+)
 
 load_dotenv(override=True)
 
@@ -28,11 +38,11 @@ EXAMPLES = [
 ]
 
 E2B_API_KEY = os.getenv("E2B_API_KEY")
-SANDBOXES = {}
-SANDBOX_METADATA = {}
+SANDBOXES: dict[str, Sandbox] = {}
+SANDBOX_METADATA: dict[str, dict[str, Any]] = {}
 SANDBOX_TIMEOUT = 300
-WIDTH = 1024
-HEIGHT = 768
+WIDTH = 1280
+HEIGHT = 960
 TMP_DIR = "./tmp/"
 if not os.path.exists(TMP_DIR):
     os.makedirs(TMP_DIR)
@@ -40,298 +50,42 @@ if not os.path.exists(TMP_DIR):
 hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_API_KEY")
 login(token=hf_token)
 
-custom_css = """
-.modal-container {
-    margin: var(--size-16) auto!important;
-}
+custom_css = SANDBOX_CSS_TEMPLATE.replace("<<WIDTH>>", str(WIDTH + 15)).replace(
+    "<<HEIGHT>>", str(HEIGHT + 10)
+)
 
-.sandbox-container {
-    position: relative;
-    width: 910px;
-    overflow: hidden;
-    margin: auto;
-}
-.sandbox-container {
-    height: 800px;
-}
-.sandbox-frame {
-    display: none;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 910px;
-    height: 800px;
-    pointer-events:none;
-}
-
-.sandbox-iframe, .bsod-image {
-    position: absolute;
-    width: <<WIDTH>>px;
-    height: <<HEIGHT>>px;
-    border: 4px solid #444444;
-    transform-origin: 0 0;
-}
-
-/* Colored label for task textbox */
-.primary-color-label label span {
-    font-weight: bold;
-    color: var(--color-accent);
-}
-
-/* Status indicator light */
-.status-bar {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    flex-align:center;
-    z-index: 100;
-}
-
-.status-indicator {
-    width: 15px;
-    height: 15px;
-    border-radius: 50%;
-}
-
-.status-text {
-    font-size: 16px;
-    font-weight: bold;
-    padding-left: 8px;
-    text-shadow: none;
-}
-
-.status-interactive {
-    background-color: #2ecc71;
-    animation: blink 2s infinite;  
-}
-
-.status-view-only {
-    background-color: #e74c3c;
-}
-
-.status-error {
-    background-color: #e74c3c;
-    animation: blink-error 1s infinite;
-}
-
-@keyframes blink-error {
-    0% { background-color: rgba(231, 76, 60, 1); }
-    50% { background-color: rgba(231, 76, 60, 0.4); }
-    100% { background-color: rgba(231, 76, 60, 1); }
-}
-
-@keyframes blink {
-    0% { background-color: rgba(46, 204, 113, 1); }  /* Green at full opacity */
-    50% { background-color: rgba(46, 204, 113, 0.4); }  /* Green at 40% opacity */
-    100% { background-color: rgba(46, 204, 113, 1); }  /* Green at full opacity */
-}
-
-#chatbot {
-    height:1000px!important;
-}
-#chatbot .role {
-    max-width:95%
-}
-
-#chatbot .bubble-wrap {
-    overflow-y: visible;
-}
-
-.logo-container {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    width: 100%;
-    box-sizing: border-box;
-    gap: 5px;
-
-.logo-item {
-    display: flex;
-    align-items: center;
-    padding: 0 30px;
-    gap: 10px;
-    text-decoration: none!important;
-    color: #f59e0b;
-    font-size:17px;
-}
-.logo-item:hover {
-    color: #935f06!important;
-}
-""".replace("<<WIDTH>>", str(WIDTH + 15)).replace("<<HEIGHT>>", str(HEIGHT + 10))
-
-footer_html = """
-<h3 style="text-align: center; margin-top:50px;"><i>Powered by open source:</i></h2>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-<div class="logo-container">
-    <a class="logo-item" href="https://github.com/huggingface/smolagents"><i class="fa fa-github"></i>smolagents</a>
-    <a class="logo-item" href="https://huggingface.co/Qwen/Qwen2-VL-72B-Instruct"><i class="fa fa-github"></i>Qwen2-VL-72B</a>
-    <a class="logo-item" href="https://github.com/e2b-dev/desktop"><i class="fa fa-github"></i>E2B Desktop</a>
-</div>
-"""
-sandbox_html_template = """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Oxanium:wght@200..800&display=swap');
-</style>
-    <h1 style="color:var(--color-accent);margin:0;">Open Computer Agent - <i>Powered by <a href="https://github.com/huggingface/smolagents">smolagents</a></i><h1>
-<div class="sandbox-container" style="margin:0;">
-    <div class="status-bar">
-        <div class="status-indicator {status_class}"></div>
-        <div class="status-text">{status_text}</div>
-    </div>
-    <iframe id="sandbox-iframe"
-        src="{stream_url}" 
-        class="sandbox-iframe"
-        style="display: block;"
-        allowfullscreen>
-    </iframe>
-    <img src="https://huggingface.co/datasets/mfarre/servedfiles/resolve/main/blue_screen_of_death.gif" class="bsod-image" style="display: none;"/>
-    <img src="https://huggingface.co/datasets/m-ric/images/resolve/main/HUD_thom.png" class="sandbox-frame" />
-</div>
-""".replace("<<WIDTH>>", str(WIDTH + 15)).replace("<<HEIGHT>>", str(HEIGHT + 10))
-
-custom_js = """function() {
-    document.body.classList.add('dark');
-
-    // Function to check if sandbox is timing out
-    const checkSandboxTimeout = function() {
-        const timeElement = document.getElementById('sandbox-creation-time');
-        
-        if (timeElement) {
-            const creationTime = parseFloat(timeElement.getAttribute('data-time'));
-            const timeoutValue = parseFloat(timeElement.getAttribute('data-timeout'));
-            const currentTime = Math.floor(Date.now() / 1000); // Current time in seconds
-            
-            const elapsedTime = currentTime - creationTime;
-            console.log("Sandbox running for: " + elapsedTime + " seconds of " + timeoutValue + " seconds");
-            
-            // If we've exceeded the timeout, show BSOD
-            if (elapsedTime >= timeoutValue) {
-                console.log("Sandbox timeout! Showing BSOD");
-                showBSOD('Error');
-                // Don't set another timeout, we're done checking
-                return;
-            }
-        }
-        
-        // Continue checking every 5 seconds
-        setTimeout(checkSandboxTimeout, 5000);
-    };
-    
-    const showBSOD = function(statusText = 'Error') {
-        console.log("Showing BSOD with status: " + statusText);
-        const iframe = document.getElementById('sandbox-iframe');
-        const bsod = document.getElementById('bsod-image');
-        
-        if (iframe && bsod) {
-            iframe.style.display = 'none';
-            bsod.style.display = 'block';
-
-            // Update status indicator
-            const statusIndicator = document.querySelector('.status-indicator');
-            const statusTextElem = document.querySelector('.status-text');
-
-            if (statusIndicator) {
-                statusIndicator.className = 'status-indicator status-error';
-            }
-            
-            if (statusTextElem) {
-                statusTextElem.innerText = statusText;
-            }
-        }
-    };
-
-    const resetBSOD = function() {
-        console.log("Resetting BSOD display");
-        const iframe = document.getElementById('sandbox-iframe');
-        const bsod = document.getElementById('bsod-image');
-        
-        if (iframe && bsod) {
-            if (bsod.style.display === 'block') {
-                // BSOD is currently showing, reset it
-                iframe.style.display = 'block';
-                bsod.style.display = 'none';
-                console.log("BSOD reset complete");
-                return true; // Indicates reset was performed
-            }
-        }
-        return false; // No reset needed
-    };
-    
-    // Function to monitor for error messages
-    const monitorForErrors = function() {
-        console.log("Error monitor started");
-        const resultsInterval = setInterval(function() {
-            const resultsElements = document.querySelectorAll('textarea, .output-text');
-            for (let elem of resultsElements) {
-                const content = elem.value || elem.innerText || '';
-                if (content.includes('Error running agent')) {
-                    console.log("Error detected!");
-                    showBSOD('Error');
-                    clearInterval(resultsInterval);
-                    break;
-                }
-            }
-        }, 1000);
-    };
-    
-    
-    // Start monitoring for timeouts immediately
-    checkSandboxTimeout();
-    
-    // Start monitoring for errors
-    setTimeout(monitorForErrors, 3000);
-    
-    // Also monitor for errors after button clicks
-    document.addEventListener('click', function(e) {
-        if (e.target.tagName === 'BUTTON') {
-            if (e.target.innerText === "Let's go!") {
-                resetBSOD();
-            }
-            setTimeout(monitorForErrors, 3000);
-        }
-    });
-
-    // Set up an interval to click the refresh button every 5 seconds
-    setInterval(function() {
-        const btn = document.getElementById('refresh-log-btn');
-        if (btn) btn.click();
-    }, 5000);
-
-    // Force dark mode
-    const params = new URLSearchParams(window.location.search);
-    if (!params.has('__theme')) {
-        params.set('__theme', 'dark');
-        window.location.search = params.toString();
-    }
-}
-"""
+sandbox_html_template = SANDBOX_HTML_TEMPLATE.replace(
+    "<<WIDTH>>", str(WIDTH + 15)
+).replace("<<HEIGHT>>", str(HEIGHT + 10))
 
 
-def upload_to_hf_and_remove(folder_path):
-    repo_id = "smolagents/computer-agent-logs"
-    try:
-        folder_name = os.path.basename(os.path.normpath(folder_path))
+def upload_to_hf_and_remove(folder_paths: list[str]):
+    repo_id = "smolagents/computer-agent-logs-2"
 
-        # Upload the folder to Huggingface
-        print(f"Uploading {folder_path} to {repo_id}/{folder_name}...")
-        url = upload_folder(
-            folder_path=folder_path,
+    with tempfile.TemporaryDirectory(dir=TMP_DIR) as temp_dir:
+        print(f"Preparing to upload {len(folder_paths)} folders to {repo_id}...")
+
+        # Copy all folders into the temporary directory
+        for folder_path in folder_paths:
+            folder_name = os.path.basename(os.path.normpath(folder_path))
+            target_path = os.path.join(temp_dir, folder_name)
+            print(f"Copying {folder_path} to temporary directory...")
+            shutil.copytree(folder_path, target_path)
+            # Remove the original folder after copying
+            shutil.rmtree(folder_path)
+            print(f"Original folder {folder_path} removed.")
+
+        # Upload the entire temporary directory
+        print(f"Uploading all folders to {repo_id}...")
+        upload_folder(
+            folder_path=temp_dir,
             repo_id=repo_id,
             repo_type="dataset",
-            path_in_repo=folder_name,
             ignore_patterns=[".git/*", ".gitignore"],
         )
+        print("Upload complete.")
 
-        # Remove the local folder after successful upload
-        print(f"Upload complete. Removing local folder {folder_path}...")
-        shutil.rmtree(folder_path)
-        print("Local folder removed successfully.")
-
-        return url
-
-    except Exception as e:
-        print(f"Error during upload or cleanup: {str(e)}")
-        raise
+        return f"Successfully uploaded {len(folder_paths)} folders to {repo_id}"
 
 
 def cleanup_sandboxes():
@@ -432,9 +186,10 @@ def generate_interaction_id(session_uuid):
 
 
 def save_final_status(folder, status: str, summary, error_message=None) -> None:
-    with open(os.path.join(folder, "metadata.json"), "w") as output_file:
+    with open(os.path.join(folder, "metadata.jsonl"), "a") as output_file:
         output_file.write(
-            json.dumps(
+            "\n"
+            + json.dumps(
                 {"status": status, "summary": summary, "error_message": error_message},
             )
         )
@@ -468,11 +223,14 @@ def create_agent(data_dir, desktop):
         model=model,
         data_dir=data_dir,
         desktop=desktop,
-        max_steps=200,
+        max_steps=20,
         verbosity_level=2,
         # planning_interval=10,
         use_v1_prompt=True,
     )
+
+
+INTERACTION_IDS = {}
 
 
 class EnrichedGradioUI(GradioUI):
@@ -495,8 +253,10 @@ class EnrichedGradioUI(GradioUI):
     ):
         interaction_id = generate_interaction_id(session_uuid)
         desktop = get_or_create_sandbox(session_uuid)
+        INTERACTION_IDS[interaction_id] = session_uuid
 
         data_dir = os.path.join(TMP_DIR, interaction_id)
+
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
 
@@ -504,20 +264,31 @@ class EnrichedGradioUI(GradioUI):
         session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop)
 
         try:
-            stored_messages.append(gr.ChatMessage(role="user", content=task_input))
+            stored_messages.append(
+                gr.ChatMessage(
+                    role="user", content=task_input, metadata={"status": "done"}
+                )
+            )
             yield stored_messages
+
+            with open(os.path.join(data_dir, "metadata.jsonl"), "w") as output_file:
+                output_file.write(
+                    json.dumps(
+                        {"task": task_input},
+                    )
+                )
 
             screenshot_bytes = session_state["agent"].desktop.screenshot(format="bytes")
             initial_screenshot = Image.open(BytesIO(screenshot_bytes))
-
             for msg in stream_to_gradio(
                 session_state["agent"],
                 task=task_input,
-                task_images=[initial_screenshot],
                 reset_agent_memory=False,
+                task_images=[initial_screenshot],
             ):
                 if (
                     hasattr(session_state["agent"], "last_marked_screenshot")
+                    and isinstance(msg, gr.ChatMessage)
                     and msg.content == "-----"
                 ):  # Append the last screenshot before the end of step
                     stored_messages.append(
@@ -529,35 +300,46 @@ class EnrichedGradioUI(GradioUI):
                                 ].last_marked_screenshot.to_string(),
                                 "mime_type": "image/png",
                             },
+                            metadata={"status": "done"},
                         )
                     )
-                stored_messages.append(msg)
+                if isinstance(msg, gr.ChatMessage):
+                    stored_messages.append(msg)
+                elif isinstance(msg, str):  # Then it's only a completion delta
+                    try:
+                        if stored_messages[-1].metadata["status"] == "pending":
+                            stored_messages[-1].content = msg
+                        else:
+                            stored_messages.append(
+                                gr.ChatMessage(
+                                    role="assistant",
+                                    content=msg,
+                                    metadata={"status": "pending"},
+                                )
+                            )
+                    except Exception as e:
+                        raise e
                 yield stored_messages
 
-            # THIS ERASES IMAGES FROM AGENT MEMORY, USE WITH CAUTION
-            if consent_storage and not task_input in EXAMPLES:
-                summary = get_agent_summary_erase_images(session_state["agent"])
-                save_final_status(data_dir, "completed", summary=summary)
+            status = "completed"
             yield stored_messages
 
         except Exception as e:
             error_message = f"Error in interaction: {str(e)}"
-            raise e
             print(error_message)
             stored_messages.append(
                 gr.ChatMessage(
                     role="assistant", content="Run failed:\n" + error_message
                 )
             )
-            if consent_storage:
-                summary = get_agent_summary_erase_images(session_state["agent"])
-                save_final_status(
-                    data_dir, "failed", summary=summary, error_message=error_message
-                )
+            status = "failed"
             yield stored_messages
         finally:
-            if consent_storage:
-                upload_to_hf_and_remove(data_dir)
+            if consent_storage and task_input not in EXAMPLES:
+                summary = get_agent_summary_erase_images(session_state["agent"])
+                save_final_status(
+                    data_dir, status, summary=summary, error_message=error_message
+                )
 
 
 theme = gr.themes.Default(
@@ -565,7 +347,7 @@ theme = gr.themes.Default(
 )
 
 # Create a Gradio app with Blocks
-with gr.Blocks(theme=theme, css=custom_css, js=custom_js) as demo:
+with gr.Blocks(theme=theme, css=custom_css, js=CUSTOM_JS) as demo:
     # Storing session hash in a state variable
     session_uuid_state = gr.State(None)
     print("Starting the app!")
@@ -588,7 +370,7 @@ In this app, you'll be able to interact with an agent powered by [smolagents](ht
 _Please note that we store the task logs by default so **do not write any personal information**; you can uncheck the logs storing on the task bar._
 """)
             task_input = gr.Textbox(
-                value="Find me pictures of cute puppies",
+                placeholder="Find me pictures of cute puppies",
                 label="Enter your task below:",
                 elem_classes="primary-color-label",
             )
@@ -620,54 +402,13 @@ _Please note that we store the task logs by default so **do not write any person
                 """.strip()
             )
 
-            def apply_theme(minimalist_mode: bool):
-                if not minimalist_mode:
-                    return """
-                        <style>
-                        .sandbox-frame {
-                            display: block!important;
-                        }
-
-                        .sandbox-iframe, .bsod-image {
-                            /* top: 73px; */
-                            top: 99px;
-                            /* left: 74px; */
-                            left: 110px;
-                        }
-                        .sandbox-iframe {
-                            transform: scale(0.667);
-                            /* transform: scale(0.59); */
-                        }
-
-                        .status-bar {
-                            position: absolute;
-                            bottom: 88px;
-                            left: 355px;
-                        }
-                        .status-text {
-                            color: #fed244;
-                        }
-                        </style>
-                    """
-                else:
-                    return """
-                        <style>
-                        .sandbox-container {
-                            height: 700px!important;
-                        }
-                        .sandbox-iframe {
-                            transform: scale(0.65);
-                        }
-                        </style>
-                    """
-
             # Hidden HTML element to inject CSS dynamically
             theme_styles = gr.HTML(apply_theme(False), visible=False)
             minimalist_toggle.change(
                 fn=apply_theme, inputs=[minimalist_toggle], outputs=[theme_styles]
             )
 
-            footer = gr.HTML(value=footer_html, label="Header")
+            footer = gr.HTML(value=FOOTER_HTML, label="Footer")
 
     chatbot_display = gr.Chatbot(
         elem_id="chatbot",
@@ -738,14 +479,12 @@ _Please note that we store the task logs by default so **do not write any person
     def interrupt_agent(session_state):
         if not session_state["agent"].interrupt_switch:
             session_state["agent"].interrupt()
+            print("Stopping agent...")
             return gr.Button("Stopping agent... (could take time)", variant="secondary")
         else:
             return gr.Button("Stop the agent!", variant="huggingface")
 
     stop_btn.click(fn=interrupt_agent, inputs=[session_state], outputs=[stop_btn])
-
-    def set_logs_source(session_state):
-        session_state["replay_log"] = "udupp2fyavq_1743170323"
 
     demo.load(
         fn=lambda: True,  # dummy to trigger the load
@@ -756,6 +495,18 @@ _Please note that we store the task logs by default so **do not write any person
         inputs=[is_interactive],
         outputs=[sandbox_html, session_uuid_state],
     )
+
+    def upload_interaction_logs():
+        data_dirs = []
+        for interaction_id in list(INTERACTION_IDS.keys()):
+            data_dir = os.path.join(TMP_DIR, interaction_id)
+            if os.path.exists(data_dir):
+                data_dirs.append(data_dir)
+                INTERACTION_IDS.pop(interaction_id)
+
+        upload_to_hf_and_remove(data_dirs)
+
+    demo.unload(fn=upload_interaction_logs)
 
 # Launch the app
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ import time
 import unicodedata
 from datetime import datetime
 from io import BytesIO
-from typing import Any, Dict, List, Optional
+from typing import List
 
 # E2B imports
 from e2b_desktop import Sandbox
@@ -13,7 +13,6 @@ from PIL import Image, ImageDraw
 from smolagents import CodeAgent, HfApiModel, tool
 from smolagents.agent_types import AgentImage
 from smolagents.memory import ActionStep, TaskStep
-from smolagents.models import ChatMessage, Model
 from smolagents.monitoring import LogLevel
 
 E2B_SYSTEM_PROMPT_TEMPLATE = """You are a desktop automation assistant that can control a remote desktop environment. The current date is <<current_date>>.
@@ -189,6 +188,7 @@ class E2BVisionAgent(CodeAgent):
             max_steps=max_steps,
             verbosity_level=verbosity_level,
             planning_interval=self.planning_interval,
+            stream_outputs=True,
             **kwargs,
         )
         self.prompt_templates["system_prompt"] = E2B_SYSTEM_PROMPT_TEMPLATE.replace(
