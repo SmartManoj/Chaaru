@@ -80,8 +80,8 @@ def upload_to_hf_and_remove(folder_paths: list[str]):
                     print(f"Copying {folder_path} to temporary directory...")
                     shutil.copytree(folder_path, target_path)
             # Remove the original folder after copying
-            # shutil.rmtree(folder_path)
-            # print(f"Original folder {folder_path} removed.")
+            shutil.rmtree(folder_path)
+            print(f"Original folder {folder_path} removed.")
 
         # Upload the entire temporary directory
         print(f"Uploading all folders to {repo_id}...")
