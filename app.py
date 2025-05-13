@@ -80,8 +80,8 @@ def upload_to_hf_and_remove(folder_paths: list[str]):
                     print(f"Copying {folder_path} to temporary directory...")
                     shutil.copytree(folder_path, target_path)
             # Remove the original folder after copying
-            # shutil.rmtree(folder_path)
-            # print(f"Original folder {folder_path} removed.")
+            shutil.rmtree(folder_path)
+            print(f"Original folder {folder_path} removed.")
 
         # Upload the entire temporary directory
         print(f"Uploading all folders to {repo_id}...")
@@ -122,29 +122,29 @@ def cleanup_sandboxes():
                 print(f"Error cleaning up sandbox {session_id}: {str(e)}")
 
 
-def get_or_create_sandbox(session_uuid):
+def get_or_create_sandbox(session_hash: str):
     current_time = time.time()
 
     if (
-        session_uuid in SANDBOXES
-        and session_uuid in SANDBOX_METADATA
-        and current_time - SANDBOX_METADATA[session_uuid]["created_at"]
+        session_hash in SANDBOXES
+        and session_hash in SANDBOX_METADATA
+        and current_time - SANDBOX_METADATA[session_hash]["created_at"]
         < SANDBOX_TIMEOUT
     ):
-        print(f"Reusing Sandbox for  {session_uuid}")
-        SANDBOX_METADATA[session_uuid]["last_accessed"] = current_time
-        return SANDBOXES[session_uuid]
+        print(f"Reusing Sandbox for session {session_hash}")
+        SANDBOX_METADATA[session_hash]["last_accessed"] = current_time
+        return SANDBOXES[session_hash]
     else:
         print("No sandbox found, creating a new one")
 
-    if session_uuid in SANDBOXES:
+    if session_hash in SANDBOXES:
         try:
-            print(f"Closing expired sandbox for session {session_uuid}")
-            SANDBOXES[session_uuid].kill()
+            print(f"Closing expired sandbox for session {session_hash}")
+            SANDBOXES[session_hash].kill()
         except Exception as e:
             print(f"Error closing expired sandbox: {str(e)}")
 
-    print(f"Creating new sandbox for session {session_uuid}")
+    print(f"Creating new sandbox for session {session_hash}")
     desktop = Sandbox(
         api_key=E2B_API_KEY,
         resolution=(WIDTH, HEIGHT),
@@ -156,18 +156,18 @@ def get_or_create_sandbox(session_uuid):
     setup_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}' | sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
     desktop.commands.run(setup_cmd)
 
-    print(f"Sandbox ID for session {session_uuid} is {desktop.sandbox_id}.")
+    print(f"Sandbox ID for session {session_hash} is {desktop.sandbox_id}.")
 
-    SANDBOXES[session_uuid] = desktop
-    SANDBOX_METADATA[session_uuid] = {
+    SANDBOXES[session_hash] = desktop
+    SANDBOX_METADATA[session_hash] = {
         "created_at": current_time,
         "last_accessed": current_time,
     }
     return desktop
 
 
-def update_html(interactive_mode: bool, session_uuid):
-    desktop = get_or_create_sandbox(session_uuid)
+def update_html(interactive_mode: bool, session_hash: str):
+    desktop = get_or_create_sandbox(session_hash)
     auth_key = desktop.stream.get_auth_key()
     base_url = desktop.stream.get_url(auth_key=auth_key)
     stream_url = base_url if interactive_mode else f"{base_url}&view_only=true"
@@ -175,8 +175,8 @@ def update_html(interactive_mode: bool, session_uuid):
     status_class = "status-interactive" if interactive_mode else "status-view-only"
     status_text = "Interactive" if interactive_mode else "Agent running..."
     creation_time = (
-        SANDBOX_METADATA[session_uuid]["created_at"]
-        if session_uuid in SANDBOX_METADATA
+        SANDBOX_METADATA[session_hash]["created_at"]
+        if session_hash in SANDBOX_METADATA
         else time.time()
     )
 
@@ -189,8 +189,8 @@ def update_html(interactive_mode: bool, session_uuid):
     return sandbox_html_content
 
 
-def generate_interaction_id(session_uuid):
-    return f"{session_uuid}_{int(time.time())}"
+def generate_interaction_id(session_hash: str):
+    return f"{session_hash}_{int(time.time())}"
 
 
 def save_final_status(folder, status: str, summary, error_message=None) -> None:
@@ -208,14 +208,11 @@ def extract_browser_uuid(js_uuid):
     return js_uuid
 
 
-def initialize_session(interactive_mode, browser_uuid):
-    if not browser_uuid:
-        new_uuid = str(uuid.uuid4())
-        print(f"[LOAD] No UUID from browser, generating: {new_uuid}")
-        return update_html(interactive_mode, new_uuid), new_uuid
-    else:
-        print(f"[LOAD] Got UUID from browser: {browser_uuid}")
-        return update_html(interactive_mode, browser_uuid), browser_uuid
+def initialize_session(interactive_mode, request: gr.Request):
+    assert request.session_hash is not None
+    print("GETTING REQUEST HASH:", request.session_hash)
+    new_uuid = str(uuid.uuid4())
+    return update_html(interactive_mode, request.session_hash), new_uuid
 
 
 def create_agent(data_dir, desktop):
@@ -238,7 +235,7 @@ def create_agent(data_dir, desktop):
     )
 
 
-INTERACTION_IDS = {}
+INTERACTION_IDS_PER_SESSION_HASH: dict[str, dict[str, bool]] = {}
 
 
 class EnrichedGradioUI(GradioUI):
@@ -255,13 +252,14 @@ class EnrichedGradioUI(GradioUI):
         task_input,
         stored_messages,
         session_state,
-        session_uuid,
         consent_storage,
         request: gr.Request,
     ):
-        interaction_id = generate_interaction_id(session_uuid)
-        desktop = get_or_create_sandbox(session_uuid)
-        INTERACTION_IDS[interaction_id] = session_uuid
+        interaction_id = generate_interaction_id(request.session_hash)
+        desktop = get_or_create_sandbox(request.session_hash)
+        if request.session_hash not in INTERACTION_IDS_PER_SESSION_HASH:
+            INTERACTION_IDS_PER_SESSION_HASH[request.session_hash] = {}
+        INTERACTION_IDS_PER_SESSION_HASH[request.session_hash][interaction_id] = True
 
         data_dir = os.path.join(TMP_DIR, interaction_id)
         print("CREATING DATA DIR", data_dir, "FROM", TMP_DIR, interaction_id)
@@ -351,6 +349,7 @@ class EnrichedGradioUI(GradioUI):
             save_final_status(
                 data_dir, status, summary=summary, error_message=error_message
             )
+            print("SAVING FINAL STATUS", data_dir, status, summary, error_message)
 
 
 theme = gr.themes.Default(
@@ -360,7 +359,6 @@ theme = gr.themes.Default(
 # Create a Gradio app with Blocks
 with gr.Blocks(theme=theme, css=custom_css, js=CUSTOM_JS) as demo:
     # Storing session hash in a state variable
-    session_uuid_state = gr.State(None)
     print("Starting the app!")
     with gr.Row():
         sandbox_html = gr.HTML(
@@ -454,11 +452,11 @@ _Please note that we store the task logs by default so **do not write any person
             return f"Guru meditation: {str(e)}"
 
     # Function to set view-only mode
-    def clear_and_set_view_only(task_input, session_uuid):
-        return update_html(False, session_uuid)
+    def clear_and_set_view_only(task_input, request: gr.Request):
+        return update_html(False, request.session_hash)
 
-    def set_interactive(session_uuid):
-        return update_html(True, session_uuid)
+    def set_interactive(request: gr.Request):
+        return update_html(True, request.session_hash)
 
     def reactivate_stop_btn():
         return gr.Button("Stop the agent!", variant="huggingface")
@@ -469,7 +467,7 @@ _Please note that we store the task logs by default so **do not write any person
     run_event = (
         run_btn.click(
             fn=clear_and_set_view_only,
-            inputs=[task_input, session_uuid_state],
+            inputs=[task_input],
             outputs=[sandbox_html],
         )
         .then(
@@ -478,12 +476,11 @@ _Please note that we store the task logs by default so **do not write any person
                 task_input,
                 stored_messages,
                 session_state,
-                session_uuid_state,
                 consent_storage,
             ],
             outputs=[chatbot_display],
         )
-        .then(fn=set_interactive, inputs=[session_uuid_state], outputs=[sandbox_html])
+        .then(fn=set_interactive, inputs=[], outputs=[sandbox_html])
         .then(fn=reactivate_stop_btn, outputs=[stop_btn])
     )
 
@@ -497,25 +494,28 @@ _Please note that we store the task logs by default so **do not write any person
 
     stop_btn.click(fn=interrupt_agent, inputs=[session_state], outputs=[stop_btn])
 
+    def upload_interaction_logs(session: gr.Request):
+        data_dirs = []
+        for interaction_id in list(
+            INTERACTION_IDS_PER_SESSION_HASH[session.session_hash].keys()
+        ):
+            data_dir = os.path.join(TMP_DIR, interaction_id)
+            if os.path.exists(data_dir):
+                data_dirs.append(data_dir)
+                del INTERACTION_IDS_PER_SESSION_HASH[session.session_hash][
+                    interaction_id
+                ]
+
+        upload_to_hf_and_remove(data_dirs)
+
     demo.load(
         fn=lambda: True,  # dummy to trigger the load
         outputs=[is_interactive],
     ).then(
         fn=initialize_session,
-        js="() => localStorage.getItem('gradio-session-uuid') || (() => { const id = self.crypto.randomUUID(); localStorage.setItem('gradio-session-uuid', id); return id })()",
         inputs=[is_interactive],
-        outputs=[sandbox_html, session_uuid_state],
+        outputs=[sandbox_html],
     )
-
-    def upload_interaction_logs():
-        data_dirs = []
-        for interaction_id in list(INTERACTION_IDS.keys()):
-            data_dir = os.path.join(TMP_DIR, interaction_id)
-            if os.path.exists(data_dir):
-                data_dirs.append(data_dir)
-                INTERACTION_IDS.pop(interaction_id)
-
-        upload_to_hf_and_remove(data_dirs)
 
     demo.unload(fn=upload_interaction_logs)
 
