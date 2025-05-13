@@ -264,6 +264,7 @@ class EnrichedGradioUI(GradioUI):
         INTERACTION_IDS[interaction_id] = session_uuid
 
         data_dir = os.path.join(TMP_DIR, interaction_id)
+        print("CREATING DATA DIR", data_dir, "FROM", TMP_DIR, interaction_id)
 
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
