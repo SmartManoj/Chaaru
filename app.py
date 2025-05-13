@@ -30,7 +30,7 @@ from scripts_and_styling import (
 load_dotenv(override=True)
 
 
-EXAMPLES = [
+TASK_EXAMPLES = [
     "Use Google Maps to find the Hugging Face HQ in Paris",
     "Go to Wikipedia and find what happened on April 4th",
     "Find out the travel time by train from Bern to Basel on Google Maps",
@@ -63,14 +63,22 @@ def upload_to_hf_and_remove(folder_paths: list[str]):
     repo_id = "smolagents/computer-agent-logs-2"
 
     with tempfile.TemporaryDirectory(dir=TMP_DIR) as temp_dir:
-        print(f"Preparing to upload {len(folder_paths)} folders to {repo_id}...")
+        print(
+            f"Uploading {len(folder_paths)} folders to {repo_id} (might end up with 0 folders uploaded if tasks are all examples)..."
+        )
 
         # Copy all folders into the temporary directory
         for folder_path in folder_paths:
             folder_name = os.path.basename(os.path.normpath(folder_path))
             target_path = os.path.join(temp_dir, folder_name)
-            print(f"Copying {folder_path} to temporary directory...")
-            shutil.copytree(folder_path, target_path)
+            print("Scanning folder", os.path.join(folder_path, "metadata.jsonl"))
+            if os.path.exists(os.path.join(folder_path, "metadata.jsonl")):
+                with open(os.path.join(folder_path, "metadata.jsonl"), "r") as f:
+                    json_content = [json.loads(line) for line in f]
+                # Skip upload if the task is in the examples
+                if json_content[0]["task"] not in TASK_EXAMPLES:
+                    print(f"Copying {folder_path} to temporary directory...")
+                    shutil.copytree(folder_path, target_path)
             # Remove the original folder after copying
             shutil.rmtree(folder_path)
             print(f"Original folder {folder_path} removed.")
@@ -263,6 +271,9 @@ class EnrichedGradioUI(GradioUI):
         # Always re-create an agent from scratch, else Qwen-VL gets confused with past history
         session_state["agent"] = create_agent(data_dir=data_dir, desktop=desktop)
 
+        if not task_input or len(task_input) == 0:
+            raise gr.Error("Task cannot be empty")
+
         try:
             stored_messages.append(
                 gr.ChatMessage(
@@ -335,11 +346,10 @@ class EnrichedGradioUI(GradioUI):
             status = "failed"
             yield stored_messages
         finally:
-            if consent_storage and task_input not in EXAMPLES:
-                summary = get_agent_summary_erase_images(session_state["agent"])
-                save_final_status(
-                    data_dir, status, summary=summary, error_message=error_message
-                )
+            summary = get_agent_summary_erase_images(session_state["agent"])
+            save_final_status(
+                data_dir, status, summary=summary, error_message=error_message
+            )
 
 
 theme = gr.themes.Default(
@@ -378,7 +388,7 @@ _Please note that we store the task logs by default so **do not write any person
             run_btn = gr.Button("Let's go!", variant="primary")
 
             gr.Examples(
-                examples=EXAMPLES,
+                examples=TASK_EXAMPLES,
                 inputs=task_input,
                 label="Example Tasks",
                 examples_per_page=4,
