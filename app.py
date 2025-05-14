@@ -264,7 +264,7 @@ class EnrichedGradioUI(GradioUI):
         data_dir = os.path.join(TMP_DIR, interaction_id)
         print("CREATING DATA DIR", data_dir, "FROM", TMP_DIR, interaction_id)
 
-        if not os.path.exists(data_dir):
+        if not os.path.exists(data_dir) and consent_storage:
             os.makedirs(data_dir)
 
         # Always re-create an agent from scratch, else Qwen-VL gets confused with past history
@@ -281,12 +281,13 @@ class EnrichedGradioUI(GradioUI):
             )
             yield stored_messages
 
-            with open(os.path.join(data_dir, "metadata.jsonl"), "w") as output_file:
-                output_file.write(
-                    json.dumps(
-                        {"task": task_input},
+            if consent_storage:
+                with open(os.path.join(data_dir, "metadata.jsonl"), "w") as output_file:
+                    output_file.write(
+                        json.dumps(
+                            {"task": task_input},
+                        )
                     )
-                )
 
             screenshot_bytes = session_state["agent"].desktop.screenshot(format="bytes")
             initial_screenshot = Image.open(BytesIO(screenshot_bytes))
@@ -345,11 +346,12 @@ class EnrichedGradioUI(GradioUI):
             status = "failed"
             yield stored_messages
         finally:
-            summary = get_agent_summary_erase_images(session_state["agent"])
-            save_final_status(
-                data_dir, status, summary=summary, error_message=error_message
-            )
-            print("SAVING FINAL STATUS", data_dir, status, summary, error_message)
+            if consent_storage:
+                summary = get_agent_summary_erase_images(session_state["agent"])
+                save_final_status(
+                    data_dir, status, summary=summary, error_message=error_message
+                )
+                print("SAVING FINAL STATUS", data_dir, status, summary, error_message)
 
 
 theme = gr.themes.Default(
