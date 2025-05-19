@@ -30,9 +30,9 @@ EXAMPLES = [
 E2B_API_KEY = os.getenv("E2B_API_KEY")
 SANDBOXES = {}
 SANDBOX_METADATA = {}
-SANDBOX_TIMEOUT = 600
-WIDTH = 1024
-HEIGHT = 768
+SANDBOX_TIMEOUT = int(os.getenv("SANDBOX_TIMEOUT", 600))
+WIDTH = int(os.getenv("WIDTH", 1024))
+HEIGHT = int(os.getenv("HEIGHT", 768))
 TMP_DIR = "./tmp/"
 if not os.path.exists(TMP_DIR):
     os.makedirs(TMP_DIR)
