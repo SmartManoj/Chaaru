@@ -190,7 +190,7 @@ class E2BVisionAgent(CodeAgent):
             max_steps=max_steps,
             verbosity_level=verbosity_level,
             planning_interval=self.planning_interval,
-            stream_outputs=True,
+            stream_outputs=0,
             **kwargs,
         )
         self.prompt_templates["system_prompt"] = E2B_SYSTEM_PROMPT_TEMPLATE.replace(
