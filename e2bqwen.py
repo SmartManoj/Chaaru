@@ -11,7 +11,7 @@ from e2b_desktop import Sandbox
 from PIL import Image, ImageDraw
 
 # SmolaAgents imports
-from gradio import ChatMessage
+from smolagents.models import ChatMessage, Model
 from smolagents import CodeAgent, HfApiModel, OpenAIServerModel, tool
 from smolagents.agent_types import AgentImage
 from smolagents.memory import ActionStep, TaskStep
