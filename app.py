@@ -12,6 +12,7 @@ import gradio as gr
 from dotenv import load_dotenv
 from e2b_desktop import Sandbox
 from gradio_modal import Modal
+from local_desktop import LocalDesktop
 from huggingface_hub import login, upload_folder
 from PIL import Image
 from smolagents import CodeAgent, InferenceClientModel
@@ -38,7 +39,8 @@ TASK_EXAMPLES = [
 ]
 
 E2B_API_KEY = os.getenv("E2B_API_KEY")
-SANDBOXES: dict[str, Sandbox] = {}
+USE_LOCAL_DESKTOP = os.getenv("USE_LOCAL_DESKTOP", "false").lower() == "true"
+SANDBOXES: dict[str, Any] = {}
 SANDBOX_METADATA: dict[str, dict[str, Any]] = {}
 SANDBOX_TIMEOUT = int(os.getenv("SANDBOX_TIMEOUT", 300))
 WIDTH = int(os.getenv("WIDTH", 1024))
@@ -145,16 +147,27 @@ def get_or_create_sandbox(session_hash: str):
             print(f"Error closing expired sandbox: {str(e)}")
 
     print(f"Creating new sandbox for session {session_hash}")
-    desktop = Sandbox(
-        api_key=E2B_API_KEY,
-        resolution=(WIDTH, HEIGHT),
-        dpi=96,
-        timeout=SANDBOX_TIMEOUT,
-        template="k0wmnzir0zuzye6dndlw",
-    )
-    desktop.stream.start(require_auth=True)
-    setup_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}' | sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
-    desktop.commands.run(setup_cmd)
+    
+    if USE_LOCAL_DESKTOP:
+        print("Using local desktop")
+        desktop = LocalDesktop(
+            resolution=(WIDTH, HEIGHT),
+            dpi=96,
+            timeout=SANDBOX_TIMEOUT,
+        )
+        desktop.stream.start(require_auth=True)
+    else:
+        print("Using E2B desktop")
+        desktop = Sandbox(
+            api_key=E2B_API_KEY,
+            resolution=(WIDTH, HEIGHT),
+            dpi=96,
+            timeout=SANDBOX_TIMEOUT,
+            template="k0wmnzir0zuzye6dndlw",
+        )
+        desktop.stream.start(require_auth=True)
+        setup_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}' | sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
+        desktop.commands.run(setup_cmd)
 
     print(f"Sandbox ID for session {session_hash} is {desktop.sandbox_id}.")
 

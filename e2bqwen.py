@@ -4,7 +4,7 @@ import unicodedata
 from datetime import datetime
 from io import BytesIO
 from time import sleep
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 # E2B imports
 from e2b_desktop import Sandbox
@@ -163,7 +163,7 @@ class E2BVisionAgent(CodeAgent):
         self,
         model: HfApiModel,
         data_dir: str,
-        desktop: Sandbox,
+        desktop: Any,
         tools: List[tool] = None,
         max_steps: int = 200,
         verbosity_level: LogLevel = 2,

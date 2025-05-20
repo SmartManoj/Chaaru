@@ -6,6 +6,7 @@ import threading
 import concurrent.futures
 from datetime import datetime
 from e2b_desktop import Sandbox
+from local_desktop import LocalDesktop
 from huggingface_hub import get_token
 from io import BytesIO
 from PIL import Image
@@ -130,17 +131,31 @@ def run_example_once(example_name, example_text, run_index, example_dir, max_ste
     # Create a new sandbox for this run
     desktop = None
     try:
-        desktop = Sandbox(
-            api_key=E2B_API_KEY,
-            resolution=(WIDTH, HEIGHT),
-            dpi=96,
-            timeout=SANDBOX_TIMEOUT,
-            template="k0wmnzir0zuzye6dndlw",
-        )
+        # Check if we should use local desktop
+        USE_LOCAL_DESKTOP = os.getenv("USE_LOCAL_DESKTOP", "false").lower() == "true"
+        
+        if USE_LOCAL_DESKTOP:
+            thread_safe_print(f"  Using local desktop for run {run_index}")
+            desktop = LocalDesktop(
+                resolution=(WIDTH, HEIGHT),
+                dpi=96,
+                timeout=SANDBOX_TIMEOUT,
+            )
+            desktop.stream.start(require_auth=True)
+        else:
+            thread_safe_print(f"  Using E2B desktop for run {run_index}")
+            desktop = Sandbox(
+                api_key=E2B_API_KEY,
+                resolution=(WIDTH, HEIGHT),
+                dpi=96,
+                timeout=SANDBOX_TIMEOUT,
+                template="k0wmnzir0zuzye6dndlw",
+            )
+            desktop.stream.start(require_auth=True)
 
-        # Initialize the desktop environment
-        setup_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}' | sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
-        desktop.commands.run(setup_cmd)
+            # Initialize the desktop environment (only needed for E2B desktop)
+            setup_cmd = """sudo mkdir -p /usr/lib/firefox-esr/distribution && echo '{"policies":{"OverrideFirstRunPage":"","OverridePostUpdatePage":"","DisableProfileImport":true,"DontCheckDefaultBrowser":true}}' | sudo tee /usr/lib/firefox-esr/distribution/policies.json > /dev/null"""
+            desktop.commands.run(setup_cmd)
 
         # Create and run the agent
         agent = create_agent(data_dir=run_dir, desktop=desktop, max_steps=max_steps)
