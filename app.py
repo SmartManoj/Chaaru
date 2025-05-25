@@ -39,7 +39,7 @@ TASK_EXAMPLES = [
 ]
 
 E2B_API_KEY = os.getenv("E2B_API_KEY")
-USE_LOCAL_DESKTOP = os.getenv("USE_LOCAL_DESKTOP", "false").lower() == "true"
+USE_LOCAL_DESKTOP = os.getenv("USE_LOCAL_DESKTOP", "").lower() in ["true", "1"]
 SANDBOXES: dict[str, Any] = {}
 SANDBOX_METADATA: dict[str, dict[str, Any]] = {}
 SANDBOX_TIMEOUT = int(os.getenv("SANDBOX_TIMEOUT", 300))
@@ -536,4 +536,4 @@ _Please note that we store the task logs by default so **do not write any person
 # Launch the app
 if __name__ == "__main__":
     Timer(60, cleanup_sandboxes).start()  # Run every minute
-    demo.launch(share=os.getenv("SHARE_GRADIO"))
+    demo.launch(share=os.getenv("SHARE_GRADIO", "").lower() in ["true", "1"])
