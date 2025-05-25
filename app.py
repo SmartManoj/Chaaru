@@ -384,7 +384,7 @@ with gr.Blocks(theme=theme, css=custom_css, js=CUSTOM_JS) as demo:
             label="Output",
         )
         with gr.Sidebar(position="left"):
-            with Modal(visible=True) as modal:
+            with Modal(visible=False) as modal:
                 gr.Markdown("""### Welcome to smolagent's Computer agent demo 🖥️
 In this app, you'll be able to interact with an agent powered by [smolagents](https://github.com/huggingface/smolagents) and [Qwen-VL](https://huggingface.co/Qwen/Qwen2.5-VL-72B-Instruct).
 
