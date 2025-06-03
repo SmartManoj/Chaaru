@@ -34,3 +34,18 @@ USE_LOCAL_DESKTOP=true
 When using the local desktop option, the application will capture screenshots of your actual desktop and allow the agent to interact with it.
 
 Note: Set your display resolution to 1024x768 in the display settings to get the best results.
+
+
+## How to use:
+
+1. Install the dependencies:
+
+`pip install -r requirements.txt`
+
+2. Run the application:
+
+`python app.py`
+
+3. Open the application in your browser:
+
+`http://localhost:7860`
